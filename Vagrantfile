@@ -1,10 +1,12 @@
+# Запуск:
+# vagrant up
 # vagrant ssh
+# cd /vagrant
 # python3 manage.py runserver 0.0.0.0:8000
 
 # После обновления из репозитория:
 # vagrant provision
-# vagrant ssh
-# python3 manage.py runserver 0.0.0.0:8000
+# Запустить
 
 Vagrant.configure(2) do |config|
   config.vm.box = "ubuntu/trusty64"
