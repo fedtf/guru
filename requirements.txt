@@ -3,3 +3,4 @@ mysqlclient
 uwsgi
 django-bootstrap3
 flake8
+requests_oauthlib

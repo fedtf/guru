@@ -51,7 +51,7 @@
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 {% if user.is_authenticated %}
-                    <li><a href="{% url 'HuskyJamGuru:login' %}">Выйти ({{ user.username }})</a></li>
+                    <li><a href="{% url 'logout' %}">Выйти ({{ user.username }})</a></li>
                 {% else %}
                     <li><a href="{% url 'HuskyJamGuru:login' %}">Войти</a></li>
                 {% endif %}
