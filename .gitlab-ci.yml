@@ -15,9 +15,9 @@ backup_databases:
   script:
     - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
     - export BRANCH=${BRANCH,,};
-    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR $MYSQL_DB_PREFIXmaster > /backup/master-latest.sql;'
-    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c "mysqldump -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR $MYSQL_DB_PREFIXmaster > /backup/master-versioned/master-$BUILD_NUMBER.sql;"
-    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR $MYSQL_DB_PREFIXdevelop > /backup/develop-latest.sql;'
+    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'master > /backup/master-latest.sql;'
+    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c "mysqldump -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'master > /backup/master-versioned/master-$BUILD_NUMBER.sql;"
+    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'fix develop > /backup/develop-latest.sql;'
 
 make_test_database:
   script:
