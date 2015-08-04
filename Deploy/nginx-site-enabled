@@ -1,0 +1,18 @@
+upstream $DOCKER_IMAGE_NAME-$BRANCH {
+	server localhost:$CONTAINER_PORT;
+}
+
+server {
+    listen 0.0.0.0:80;
+    server_name www.$BRANCH.banner-crm.pmlife.me $BRANCH.banner-crm.pmlife.me;
+
+    location / {
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-NginX-Proxy true;
+
+        proxy_pass http://$DOCKER_IMAGE_NAME-$BRANCH/;
+        proxy_redirect off;
+    }
+}

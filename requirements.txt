@@ -1,0 +1,5 @@
+django==1.8
+mysqlclient
+uwsgi
+django-bootstrap3
+flake8
