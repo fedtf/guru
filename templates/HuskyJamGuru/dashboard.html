@@ -4,4 +4,62 @@
     {% for issue in issues %}
         <h3>{{ issue.milestone.title }} -> {{ issue.title }}</h3><br>
     {% endfor %}
+
+    <div class="bs-docs-section">
+        <div class="row">
+          <div class="col-lg-3">
+            <h2>Open</h2>
+          </div>
+            <div class="col-lg-3">
+            <h2>In Progress</h2>
+          </div>
+            <div class="col-lg-3">
+            <h2>Fixed</h2>
+          </div>
+            <div class="col-lg-3">
+            <h2>Verified</h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-lg-3">
+            <div class="bs-component">
+              <div class="panel panel-default">
+                <div class="panel-heading">Panel heading</div>
+                <div class="panel-body">
+                  Panel content
+                </div>
+              </div>
+            <div style="display: none;" id="source-button" class="btn btn-primary btn-xs">&lt; &gt;</div></div>
+          </div>
+                      <div class="col-lg-3">
+            <div class="bs-component">
+              <div class="panel panel-default">
+                <div class="panel-heading">Panel heading</div>
+                <div class="panel-body">
+                  Panel content
+                </div>
+              </div>
+            <div style="display: none;" id="source-button" class="btn btn-primary btn-xs">&lt; &gt;</div></div>
+          </div>
+                      <div class="col-lg-3">
+            <div class="bs-component">
+              <div class="panel panel-default">
+                <div class="panel-heading">Panel heading</div>
+                <div class="panel-body">
+                  Panel content
+                </div>
+              </div>
+            <div style="display: none;" id="source-button" class="btn btn-primary btn-xs">&lt; &gt;</div></div>
+          </div>
+                      <div class="col-lg-3">
+            <div class="bs-component">
+              <div class="panel panel-default">
+                <div class="panel-heading">Panel heading</div>
+                <div class="panel-body">
+                  Panel content
+                </div>
+              </div>
+            <div style="display: none;" id="source-button" class="btn btn-primary btn-xs">&lt; &gt;</div></div>
+          </div>
+        </div>
 {% endblock %}
