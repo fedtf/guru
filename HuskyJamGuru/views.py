@@ -14,10 +14,11 @@ class Dashboard(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super(Dashboard, self).get_context_data(**kwargs)
-        gitlab = get_gitlab(self.request)
-        r = gitlab.get("http://185.22.60.142:8889/api/v3/issues?state=opened")
-        issues = json.loads(r.content.decode("utf-8"))
-        context['issues'] = issues
+        if self.request.user.is_authenticated():
+            gitlab = get_gitlab(self.request)
+            r = gitlab.get("http://185.22.60.142:8889/api/v3/issues?state=opened")
+            issues = json.loads(r.content.decode("utf-8"))
+            context['issues'] = issues
         return context
 
 
