@@ -6,3 +6,14 @@ body {
     width: 700px;
     margin: auto;
 }
+
+.dropable {
+	padding-bottom:100px;
+	min-height:600px;
+}
+
+.box-shadow {
+	background:#eee;
+	height:80px;
+	opacity:.2;
+}
