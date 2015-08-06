@@ -2,7 +2,8 @@ $(function() {
 	
 	$('.dropable').sortable({
 		connectWith: ".dropable",
-		revert: true
+		revert: true,
+		cursor: 'move'
 	});
 	
 });
