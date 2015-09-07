@@ -8,12 +8,20 @@ body {
 }
 
 .dropable {
-	padding-bottom:100px;
-	min-height:600px;
+	min-height: 100px;
+}
+
+.drop-row {
+    min-height:100% !important; /* browser fill */
+    height:auto;
 }
 
 .box-shadow {
 	background:#eee;
 	height:80px;
 	opacity:.2;
+}
+
+.milestone {
+
 }
