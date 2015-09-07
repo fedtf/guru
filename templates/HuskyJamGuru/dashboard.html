@@ -1,10 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    {% for issue in issues %}
-        <h3>{{ issue.milestone.title }} -> {{ issue.title }}</h3><br>
-    {% endfor %}
-
     <div class="bs-docs-section">
         <div class="row">
             <div class="col-lg-3">
@@ -21,58 +17,52 @@
             </div>
         </div>
         <div class="row">
-            <div class="panel panel-default">
-                <div class="panel-heading">Panel heading <small class="pull-right">1h / 2h</small></div>
-                <div class="panel-body milestone">
-                    <div class="col-lg-3 drop-row">
-                        <div class="col-lg-12 dropable">
-                            <div class="bs-component">
-                                <div class="panel panel-danger">
-                                    <div class="panel-heading">Panel heading <small class="pull-right">1h / 2h</small></div>
-                                    <div class="panel-body">
-                                        <small>Panel content</small>
-                                    </div>
-                                </div>
+            {% for milestone in milestones %}
+                <div class="panel panel-default">
+                    <div class="panel-heading"><a target="_blank" href ="http://185.22.60.142:8889/root/RB-insights/milestones/{{ milestone.iid }}"> {{ milestone.title }}</a> <small class="pull-right">1h / 2h</small></div>
+                    <div class="panel-body milestone">
+                        <div class="col-lg-3 drop-row">
+                            <div class="col-lg-12 dropable">
+                                {% for issue in issues_opened %}
+                                    {% if issue.milestone.id == milestone.id  %}
+                                        <div class="bs-component">
+                                            <div class="panel panel-danger">
+                                                <div class="panel-heading">{{ issue.title }} <small class="pull-right">1h / 2h</small></div>
+                                                <div class="panel-body">
+                                                    <small>Panel content</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-3">
-                        <div class="col-lg-12 dropable">
-                            <div class="bs-component">
-                                <div class="panel panel-danger">
-                                    <div class="panel-heading">Panel heading <small class="pull-right">1h / 2h</small></div>
-                                    <div class="panel-body">
-                                        <small>Panel content</small>
-                                    </div>
-                                </div>
+                        <div class="col-lg-3 drop-row">
+                            <div class="col-lg-12 dropable">
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-3">
-                        <div class="col-lg-12 dropable">
-                            <div class="bs-component">
-                                <div class="panel panel-danger">
-                                    <div class="panel-heading">Panel heading <small class="pull-right">1h / 2h</small></div>
-                                    <div class="panel-body">
-                                        <small>Panel content</small>
-                                    </div>
-                                </div>
+                        <div class="col-lg-3 drop-row">
+                            <div class="col-lg-12 dropable">
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-3">
-                        <div class="col-lg-12 dropable">
-                            <div class="bs-component">
-                                <div class="panel panel-danger">
-                                    <div class="panel-heading">Panel heading <small class="pull-right">1h / 2h</small></div>
-                                    <div class="panel-body">
-                                        <small>Panel content</small>
-                                    </div>
-                                </div>
+                        <div class="col-lg-3 drop-row">
+                            <div class="col-lg-12 dropable">
+                                {% for issue in issues_closed %}
+                                    {% if issue.milestone.id == milestone.id  %}
+                                        <div class="bs-component">
+                                            <div class="panel panel-danger">
+                                                <div class="panel-heading">1h / 2h</div>
+                                                <div class="panel-body">
+                                                    <small>{{ issue.title }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            {% endfor %}
         </div>
 {% endblock %}

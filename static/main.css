@@ -22,6 +22,7 @@ body {
 	opacity:.2;
 }
 
-.milestone {
-
+.panel-heading a {
+    color: #ffffff;
+    text-decoration: underline;
 }
