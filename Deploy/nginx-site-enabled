@@ -4,7 +4,7 @@ upstream $DOCKER_IMAGE_NAME-$BRANCH {
 
 server {
     listen 0.0.0.0:80;
-    server_name www.$BRANCH.banner-crm.pmlife.me $BRANCH.banner-crm.pmlife.me;
+    server_name www.$BRANCH.guru.huskyjam.com $BRANCH.guru.huskyjam.com;
 
     location / {
         proxy_set_header X-Real-IP $remote_addr;

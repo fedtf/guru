@@ -40,4 +40,4 @@ deploy:
     - export CONTAINER_PORT;
     - envsubst '$BRANCH $CONTAINER_PORT $DOCKER_IMAGE_NAME' < ./Deploy/nginx-site-enabled > /etc/nginx/sites-enabled/$DOCKER_IMAGE_NAME-$BRANCH
     - sudo /etc/init.d/nginx restart;
-    - echo "Url $BRANCH.$PROJECT_NAME.pmlife.me"
+    - echo "Url $BRANCH.huskyjam.com"
