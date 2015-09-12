@@ -5,7 +5,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.conf import settings
-from django.contrib.sites.models import Site
 
 import json
 

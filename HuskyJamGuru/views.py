@@ -1,9 +1,9 @@
 import json
 
-from django.views.generic import TemplateView, ListView, UpdateView, CreateView, DeleteView, DetailView
+from django.views.generic import TemplateView, ListView, DetailView
 
 from Project.gitlab import get_gitlab, load_new_and_update_existing_projects_from_gitlab
-from .models import Project, UserToProjectAccess, GitlabProject
+from .models import Project, UserToProjectAccess
 
 
 class Dashboard(TemplateView):
