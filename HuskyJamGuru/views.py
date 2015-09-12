@@ -1,8 +1,9 @@
 import json
 
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, ListView, UpdateView, CreateView, DeleteView, DetailView
 
-from Project.gitlab import get_gitlab
+from Project.gitlab import get_gitlab, load_new_and_update_existing_projects_from_gitlab
+from .models import Project, UserToProjectAccess, GitlabProject
 
 
 class Dashboard(TemplateView):
@@ -43,3 +44,27 @@ class Dashboard(TemplateView):
 
 class Login(TemplateView):
     template_name = "HuskyJamGuru/login.html"
+
+
+class ProjectListView(ListView):
+    template_name = "HuskyJamGuru/project_list.html"
+    model = Project
+    context_object_name = 'project_list'
+
+    def get_queryset(self):
+        return UserToProjectAccess.get_projects_queryset_user_has_access_to(self.request.user, 'developer')
+
+    def get_context_data(self, **kwargs):
+        load_new_and_update_existing_projects_from_gitlab(self.request)
+        context = super(self.__class__, self).get_context_data(**kwargs)
+        return context
+
+
+class ProjectDetailView(DetailView):
+    template_name = "HuskyJamGuru/project_detail.html"
+    model = Project
+    context_object_name = 'project'
+
+    def get_context_data(self, **kwargs):
+        context = super(self.__class__, self).get_context_data(**kwargs)
+        return context

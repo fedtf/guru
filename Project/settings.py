@@ -39,6 +39,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
     'bootstrap3',
     'HuskyJamGuru'
 )
@@ -108,3 +109,9 @@ STATICFILES_DIRS = (
 )
 
 STATIC_URL = '/static/'
+
+GITLAB_URL = 'http://185.22.60.142:8889'
+GITLAB_APPLICATION_ID = '9bc472164fc76c3dda596f01205cba2bb63a47d4e57d59fd5dd01762b3042721'
+GITLAB_APPLICATION_SECRET = 'b3d2981b461dded4655810765b2e898ced9fd55a277348a1502607960da5c1f2'
+
+SITE_ID = 1

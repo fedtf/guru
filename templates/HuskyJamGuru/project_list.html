@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% load bootstrap3 %}
+
+{% block content %}
+            <h3>Список проектов</h3>
+            <br>
+    {% for project in project_list %}
+        <a href="{% url 'HuskyJamGuru:project-detail'  %}">{{ project }}</a> <br>
+    {% endfor %}
+{% endblock %}
