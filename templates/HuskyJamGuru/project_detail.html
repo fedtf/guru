@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load settings_value %}
 
 {% block content %}
     <div class="bs-docs-section">
@@ -17,52 +18,63 @@
             </div>
         </div>
         <div class="row">
-            {% for milestone in milestones %}
-                <div class="panel panel-default">
-                    <div class="panel-heading"><a target="_blank" href ="http://185.22.60.142:8889/root/RB-insights/milestones/{{ milestone.iid }}"> {{ milestone.title }}</a> <small class="pull-right">1h / 2h</small></div>
-                    <div class="panel-body milestone">
-                        <div class="col-lg-3 drop-row">
-                            <div class="col-lg-12 dropable">
-                                {% for issue in issues_opened %}
-                                    {% if issue.milestone.id == milestone.id  %}
-                                        <div class="bs-component">
-                                            <div class="panel panel-danger">
-                                                <div class="panel-heading">{{ issue.title }} <small class="pull-right">1h / 2h</small></div>
-                                                <div class="panel-body">
-                                                    <small>Panel content</small>
+            {% for gitlab_project in project.gitlab_projects.all %}
+                {{ gitlab_project.name }} <br><br>
+
+                {% for milestone in gitlab_project.gitlab_milestones.all %}
+                    <div class="panel panel-default">
+                        <div class="panel-heading"><a target="_blank" href ="{% settings_value "GITLAB_URL" %}/root/{{ gitlab_project.name }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a> <small class="pull-right">1h / 2h</small></div>
+                        <div class="panel-body milestone">
+                            <div class="col-lg-3 drop-row">
+                                <div class="col-lg-12 dropable">
+                                    {% for issue in gitlab_project.issues.all %}
+                                        {% if issue.gitlab_milestone == milestone  %}
+                                            <div class="bs-component">
+                                                <div class="panel panel-success">
+                                                    <div class="panel-heading"><a href ="{% settings_value "GITLAB_URL" %}/root/{{ gitlab_project.name }}/issues/{{ issue.gitlab_issue_iid }}">{{ issue.name }}</a>
+                                                        <small class="pull-right">
+                                                            1h / 2h
+                                                            <a href="{% url 'HuskyJamGuru:issue-time-assessment-create' issue.pk %}">
+                                                                <span class="glyphicon glyphicon-hourglass" aria-hidden="true"></span>
+                                                            </a>
+                                                        </small>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <small>{{ issue.description }}</small>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-lg-3 drop-row">
-                            <div class="col-lg-12 dropable">
+                            <div class="col-lg-3 drop-row">
+                                <div class="col-lg-12 dropable">
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-lg-3 drop-row">
-                            <div class="col-lg-12 dropable">
+                            <div class="col-lg-3 drop-row">
+                                <div class="col-lg-12 dropable">
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-lg-3 drop-row">
-                            <div class="col-lg-12 dropable">
-                                {% for issue in issues_closed %}
-                                    {% if issue.milestone.id == milestone.id  %}
-                                        <div class="bs-component">
-                                            <div class="panel panel-danger">
-                                                <div class="panel-heading">1h / 2h</div>
-                                                <div class="panel-body">
-                                                    <small>{{ issue.title }}</small>
+                            <div class="col-lg-3 drop-row">
+                                <div class="col-lg-12 dropable">
+                                    {% for issue in issues_closed %}
+                                        {% if issue.milestone.id == milestone.id  %}
+                                            <div class="bs-component">
+                                                <div class="panel panel-danger">
+                                                    <div class="panel-heading">1h / 2h</div>
+                                                    <div class="panel-body">
+                                                        <small>{{ issue.title }}</small>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                {% endfor %}
             {% endfor %}
         </div>
 {% endblock %}

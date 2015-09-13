@@ -53,6 +53,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'Project.middlewares.RequireLoginMiddleware'
 )
 
 ROOT_URLCONF = 'Project.urls'
@@ -115,3 +116,16 @@ GITLAB_APPLICATION_ID = '9bc472164fc76c3dda596f01205cba2bb63a47d4e57d59fd5dd0176
 GITLAB_APPLICATION_SECRET = 'b3d2981b461dded4655810765b2e898ced9fd55a277348a1502607960da5c1f2'
 
 SITE_ID = 1
+
+LOGIN_URL = '/login'
+LOGIN_REDIRECT_URL = '/'
+
+LOGIN_REQUIRED_URLS = (
+    r'(.*)$',
+)
+
+LOGIN_REQUIRED_URLS_EXCEPTIONS = (
+    r'/login(.*)$',
+    r'/admin(.*)$',
+    r'/gitlab_auth_callback(.*)$',
+)

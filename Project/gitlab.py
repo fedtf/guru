@@ -8,11 +8,10 @@ from django.conf import settings
 
 import json
 
-from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject
+from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilestone, GitLabIssue
 
 
 def get_gitlab(request=None, redirect_uri=''):
-    print(redirect_uri)
     client_id = settings.GITLAB_APPLICATION_ID
     if request is None:
 
@@ -50,7 +49,7 @@ def gitlab_auth_callback(request):
     user.backend = 'django.contrib.auth.backends.ModelBackend'
     django_login(request, user)
 
-    return HttpResponseRedirect(reverse('HuskyJamGuru:dashboard'))
+    return HttpResponseRedirect(reverse('HuskyJamGuru:project-list'))
 
 
 def login_redirect(request):
@@ -63,10 +62,44 @@ def login_redirect(request):
 
 def load_new_and_update_existing_projects_from_gitlab(request):
     projects = json.loads(
-        get_gitlab(request).get("http://185.22.60.142:8889/api/v3/projects").content.decode("utf-8")
+        get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
     )
     for project in projects:
         gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
         gitlab_project.name = project['name']
         gitlab_project.name_with_namespace = project['name_with_namespace']
         gitlab_project.save()
+        milestones = json.loads(
+            get_gitlab(request).get(
+                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/milestones"
+            ).content.decode("utf-8")
+        )
+        for milestone in milestones:
+            print(milestone)
+            gitlab_milestone = GitLabMilestone.objects.get_or_create(
+                gitlab_milestone_id=milestone['iid'],
+                gitlab_project=gitlab_project
+            )[0]
+            gitlab_milestone.name = milestone['title']
+            gitlab_milestone.save()
+
+        issues = json.loads(
+            get_gitlab(request).get(
+                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/issues"
+            ).content.decode("utf-8")
+        )
+        for issue in issues:
+            gitlab_issue = GitLabIssue.objects.get_or_create(
+                gitlab_issue_id=issue['id'],
+                gitlab_project=gitlab_project
+            )[0]
+            gitlab_issue.name = issue['title']
+            gitlab_issue.gitlab_milestone = GitLabMilestone.objects.get(
+                gitlab_milestone_id=issue['milestone']['iid'],
+                gitlab_project=gitlab_project
+            )
+            gitlab_issue.description = issue['description']
+            gitlab_issue.gitlab_issue_iid = issue['iid']
+            gitlab_issue.updated_at = issue['updated_at']
+            gitlab_issue.project = gitlab_project
+            gitlab_issue.save()
