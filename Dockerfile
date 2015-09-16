@@ -3,8 +3,8 @@ FROM ubuntu:14.04
 RUN apt-get update && \
 	apt-get install -y libxml2-dev libxslt1-dev python3-dev python3-setuptools python3.4 build-essential python3-pip nginx libpq-dev mysql-client libmysqlclient-dev
 
+COPY requirements-develop.txt /opt/app/requirements-develop.txt
 COPY requirements.txt /opt/app/requirements.txt
-COPY requirements.txt /opt/app/requirements-develop.txt
 RUN pip3 install -r /opt/app/requirements.txt
 
 COPY . /opt/app
