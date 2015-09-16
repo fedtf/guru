@@ -71,6 +71,7 @@ class GitLabIssue(models.Model):
     name = models.CharField(max_length=500, unique=False, blank=True)
     description = models.CharField(max_length=1000, unique=False, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
+    assignee = models.ForeignKey('GitlabAuthorisation', unique=False, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -134,15 +135,19 @@ class IssueTypeUpdate(models.Model):
     type = models.CharField(max_length=100)
     author = models.ForeignKey(User, unique=False)
     time = models.DateTimeField(auto_now=True)
+    is_current = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.pk:
             if self.gitlab_issue.current_type.type == 'in_progress' and self.type != 'in_progress':
                 new_issue_time_spent_record = IssueTimeSpentRecord(
-                    user=self.author,
+                    user=self.gitlab_issue.current_type.author,
                     gitlab_issue=self.gitlab_issue,
                     time_start=self.gitlab_issue.current_type.time,
                     time_stop=datetime.datetime.now()
                 )
                 new_issue_time_spent_record.save()
+            for previous in IssueTypeUpdate.objects.filter(gitlab_issue=self.gitlab_issue, is_current=True):
+                previous.is_current = False
+                previous.save()
         super(IssueTypeUpdate, self).save(*args, **kwargs)

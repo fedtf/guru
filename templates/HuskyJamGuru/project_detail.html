@@ -6,7 +6,7 @@
     <div style="display: none;" id="panel-for-copying">
         <div class="panel panel-success">
             <div class="panel-heading"><a href="#" class="issue-name"></a>
-                (<small class="issue-heading-time"></small>)
+                <br>(<small class="issue-heading-time"></small>)
             </div>
             <div class="panel-body">
                 <small class="issue-body"></small>
@@ -120,10 +120,13 @@
                         panel.appendTo(targetPlaceForPanel);
                     }
                     panel.find(".issue-name").text(issues[i].name);
-                    ///root/Super5-server/issues/1
                     panel.find(".issue-name").attr("href", issues[i].link);
                     panel.find(".issue-body").text(issues[i].description);
-                    panel.find(".issue-heading-time").text(issues[i].spent_minutes + ' minutes');
+                    var assigneeName = 'Unassigned';
+                    if (issues[i].assignee !== null) {
+                        assigneeName = issues[i].assignee.name;
+                    }
+                    panel.find(".issue-heading-time").text(issues[i].spent_minutes + ' minutes, ' + assigneeName);
                     panel.attr('issue-pk', issues[i].pk);
                 }
             });

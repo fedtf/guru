@@ -1,47 +1,9 @@
-import json
-
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
 
-from Project.gitlab import get_gitlab, load_new_and_update_existing_projects_from_gitlab
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
-
-
-class Dashboard(TemplateView):
-    template_name = "HuskyJamGuru/dashboard.html"
-
-    def get_context_data(self, **kwargs):
-        context = super(Dashboard, self).get_context_data(**kwargs)
-        if self.request.user.is_authenticated():
-            projects = json.loads(
-                get_gitlab(self.request).get("http://185.22.60.142:8889/api/v3/projects").content.decode("utf-8")
-            )
-
-            issues_closed = json.loads(
-                get_gitlab(self.request).get(
-                    "http://185.22.60.142:8889/api/v3/issues?state=closed"
-                ).content.decode("utf-8")
-            )
-
-            issues_opened = json.loads(
-                get_gitlab(self.request).get(
-                    "http://185.22.60.142:8889/api/v3/issues?state=opened"
-                ).content.decode("utf-8")
-            )
-
-            milestones = json.loads(
-                get_gitlab(self.request).get(
-                    "http://185.22.60.142:8889/api/v3/projects/7/milestones"
-                ).content.decode("utf-8")
-            )
-
-            context['issues_opened'] = issues_opened
-            context['issues_closed'] = issues_closed
-            context['projects'] = projects
-            context['milestones'] = milestones
-
-        return context
 
 
 class Login(TemplateView):
@@ -85,13 +47,6 @@ class IssueTimeAssessmentCreate(CreateView):
     def get_context_data(self, **kwargs):
         context = super(self.__class__, self).get_context_data(**kwargs)
         return context
-
-    # def form_valid(self, form):
-    #     form_valid = super(self.__class__, self).form_valid(form)
-    #     self.object.user = self.request.user
-    #     self.object.gitlab_issue = GitLabIssue.objects.get(pk=self.kwargs['issue_pk'])
-    #     self.object.save()
-    #     return form_valid
 
     def post(self, request, *args, **kwargs):
         self.object = None

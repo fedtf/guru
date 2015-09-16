@@ -44,7 +44,7 @@
             <ul class="nav navbar-nav">
                 {% if user.is_authenticated   %}
                     <li><a href="{% url 'HuskyJamGuru:project-list' %}">Projects</a></li>
-                    <li><a href="#" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
+                    <li><a href="" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
                     {% if user.is_superuser %}
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}
@@ -72,7 +72,8 @@
     //Synchronise with gitlab script:
     $(document).ready(function() {
         var syncButton = $("#sync-with-gitlab-button");
-        syncButton.click(function() {
+        syncButton.click(function(event) {
+            event.preventDefault();
             syncButton.text("Doing smth strange...");
             $.ajax({
                 url: "/synchronise-with-gitlab"

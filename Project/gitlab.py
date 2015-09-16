@@ -60,6 +60,16 @@ def login_redirect(request):
     return HttpResponseRedirect(authorization_url)
 
 
+def reassign_issue(request, issue, gitlab_user):
+    url = settings.GITLAB_URL + "/api/v3/projects/" + str(issue.gitlab_project.gitlab_id) + "/issues/" + str(issue.gitlab_issue_id)
+    response = get_gitlab(request).put(
+        url,
+        data={
+            "assignee_id": gitlab_user.gitlab_user_id
+        }
+    ).content.decode("utf-8")
+
+
 def load_new_and_update_existing_projects_from_gitlab(request):
     projects = json.loads(
         get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
@@ -99,6 +109,13 @@ def load_new_and_update_existing_projects_from_gitlab(request):
                 gitlab_milestone_id=issue['milestone']['iid'],
                 gitlab_project=gitlab_project
             )
+            if issue['assignee'] is not None:
+                try:
+                    gitlab_issue.assignee = GitlabAuthorisation.objects.get(gitlab_user_id=issue['assignee']['id'])
+                except ObjectDoesNotExist:
+                    pass
+            else:
+                gitlab_issue.assignee = None
             gitlab_issue.description = issue['description']
             gitlab_issue.gitlab_issue_iid = issue['iid']
             gitlab_issue.updated_at = issue['updated_at']

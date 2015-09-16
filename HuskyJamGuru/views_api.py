@@ -1,7 +1,9 @@
 from rest_framework import viewsets
 
+from django.db.models import Count
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
+from Project.gitlab import reassign_issue
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
@@ -16,8 +18,24 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                 return IssueTypeUpdate.objects.filter(
                     gitlab_issue=self.request.query_params['issue_pk']
                 ).order_by('-pk')[0:1].all()
-
         return IssueTypeUpdate.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        issue = GitLabIssue.objects.get(pk=request.data['gitlab_issue'])
+        if issue.current_type.type != 'in_progress' \
+                and request.data['type'] == 'in_progress':
+            issue.assignee = request.user.gitlabauthorisation
+            issue.save()
+            for type_update in IssueTypeUpdate.objects.filter(author=request.user, type='in_progress', is_current=True).all():
+                if type_update.gitlab_issue != issue:
+                    new_update = IssueTypeUpdate(
+                        gitlab_issue=type_update.gitlab_issue,
+                        type='open',
+                        author=request.user,
+                    )
+                    new_update.save()
+            reassign_issue(request, issue, request.user.gitlabauthorisation)
+        return super(self.__class__, self).create(request, *args, **kwargs)
 
 
 class GitLabIssueViewSet(viewsets.ModelViewSet):
