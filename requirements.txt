@@ -1,2 +1,7 @@
--r requirements-develop.txt
+django==1.8
+mysqlclient
+django-bootstrap3
+flake8
+requests_oauthlib
+djangorestframework
 uwsgi
