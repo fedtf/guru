@@ -78,16 +78,16 @@ class GitLabIssue(models.Model):
 
     @property
     def current_type(self):
-        current_type = IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get()
-        if current_type is not None:
-            return current_type
-        else:
-            current_type = IssueTypeUpdate(
+        try:
+            c_type = IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get()
+            return c_type
+        except Exception as e:
+            c_type = IssueTypeUpdate(
                 gitlab_issue=self,
                 type='open'
             )
-            current_type.save()
-            return current_type
+            return c_type
+
 
     @property
     def spent_minutes(self):
