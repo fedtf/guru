@@ -67,6 +67,7 @@ def load_new_and_update_existing_projects_from_gitlab(request):
     for project in projects:
         gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
         gitlab_project.name = project['name']
+        gitlab_project.path_with_namespace = project['path_with_namespace']
         gitlab_project.name_with_namespace = project['name_with_namespace']
         gitlab_project.save()
         milestones = json.loads(
@@ -75,7 +76,6 @@ def load_new_and_update_existing_projects_from_gitlab(request):
             ).content.decode("utf-8")
         )
         for milestone in milestones:
-            print(milestone)
             gitlab_milestone = GitLabMilestone.objects.get_or_create(
                 gitlab_milestone_id=milestone['iid'],
                 gitlab_project=gitlab_project
@@ -90,6 +90,7 @@ def load_new_and_update_existing_projects_from_gitlab(request):
         )
         for issue in issues:
             gitlab_issue = GitLabIssue.objects.get_or_create(
+                gitlab_issue_iid=issue['iid'],
                 gitlab_issue_id=issue['id'],
                 gitlab_project=gitlab_project
             )[0]

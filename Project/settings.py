@@ -41,7 +41,8 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'bootstrap3',
-    'HuskyJamGuru'
+    'HuskyJamGuru',
+    'rest_framework'
 )
 
 MIDDLEWARE_CLASSES = (

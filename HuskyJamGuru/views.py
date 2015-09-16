@@ -2,6 +2,7 @@ import json
 
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.core.urlresolvers import reverse_lazy
+from django.http import HttpResponse
 
 from Project.gitlab import get_gitlab, load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
@@ -56,9 +57,13 @@ class ProjectListView(ListView):
         return UserToProjectAccess.get_projects_queryset_user_has_access_to(self.request.user, 'developer')
 
     def get_context_data(self, **kwargs):
-        load_new_and_update_existing_projects_from_gitlab(self.request)
         context = super(self.__class__, self).get_context_data(**kwargs)
         return context
+
+
+def synchronise_with_gitlab(request):
+    load_new_and_update_existing_projects_from_gitlab(request)
+    return HttpResponse()
 
 
 class ProjectDetailView(DetailView):
@@ -112,4 +117,3 @@ class IssueTimeAssessmentCreate(CreateView):
         form.fields['gitlab_issue'].widget.attrs['disabled'] = True
         form.fields['user'].widget.attrs['disabled'] = True
         return form
-

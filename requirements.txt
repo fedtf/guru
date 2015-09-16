@@ -1,6 +1,2 @@
-django==1.8
-mysqlclient
+-r requirements-develop.txt
 uwsgi
-django-bootstrap3
-flake8
-requests_oauthlib
