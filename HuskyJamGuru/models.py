@@ -82,7 +82,7 @@ class GitLabIssue(models.Model):
         if current_type is not None:
             return current_type
         else:
-            return None
+            return 'open'
 
     @property
     def spent_minutes(self):
