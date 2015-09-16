@@ -59,7 +59,7 @@ setup_nginx_production:
     - printenv;
     - envsubst '$BRANCH $CONTAINER_PORT $DOCKER_IMAGE_NAME $PROJECT_NAME' < ./Deploy/nginx-production-site-enabled > /etc/nginx/sites-enabled/$DOCKER_IMAGE_NAME-$BRANCH
     - sudo /etc/init.d/nginx restart;
-    - echo "Url $PROJECT_NAME.huskyjam.com"
+    - echo "Url guru.huskyjam.com"
   only:
     - production
 
