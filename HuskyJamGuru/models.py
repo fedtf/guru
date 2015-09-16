@@ -82,7 +82,12 @@ class GitLabIssue(models.Model):
         if current_type is not None:
             return current_type
         else:
-            return 'open'
+            current_type = IssueTypeUpdate(
+                gitlab_issue=self,
+                type='open'
+            )
+            current_type.save()
+            return current_type
 
     @property
     def spent_minutes(self):
@@ -133,7 +138,7 @@ class IssueTimeSpentRecord(models.Model):
 class IssueTypeUpdate(models.Model):
     gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_update')
     type = models.CharField(max_length=100)
-    author = models.ForeignKey(User, unique=False)
+    author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)
     is_current = models.BooleanField(default=True)
 
