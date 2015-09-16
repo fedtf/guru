@@ -49,4 +49,14 @@ class GitLabIssueSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = GitLabIssue
-        fields = ('name', 'description', 'pk', 'current_type', 'gitlab_milestone', 'spent_minutes', 'link', 'assignee', 'gitlab_issue_id')
+        fields = (
+            'name',
+            'description',
+            'pk',
+            'current_type',
+            'gitlab_milestone',
+            'spent_minutes',
+            'link',
+            'assignee',
+            'gitlab_issue_id'
+        )

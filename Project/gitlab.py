@@ -61,8 +61,9 @@ def login_redirect(request):
 
 
 def reassign_issue(request, issue, gitlab_user):
-    url = settings.GITLAB_URL + "/api/v3/projects/" + str(issue.gitlab_project.gitlab_id) + "/issues/" + str(issue.gitlab_issue_id)
-    response = get_gitlab(request).put(
+    url = settings.GITLAB_URL + "/api/v3/projects/" \
+        + str(issue.gitlab_project.gitlab_id) + "/issues/" + str(issue.gitlab_issue_id)
+    get_gitlab(request).put(
         url,
         data={
             "assignee_id": gitlab_user.gitlab_user_id
