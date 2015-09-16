@@ -15,9 +15,10 @@ backup_databases:
   script:
     - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
     - export BRANCH=${BRANCH,,};
+    - mkdir -p /backup/$PROJECT_NAME/production-versioned
     - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'master > /backup/master-latest.sql;'
-    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c "mysqldump -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'master > /backup/master-versioned/master-$BUILD_NUMBER.sql;"
-    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'develop > /backup/develop-latest.sql;'
+    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c "mysqldump -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'production > /backup/production-versioned/production-$CI_BUILD_ID.sql;"
+    - docker run --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'mysqldump -u root -p$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h$MYSQL_CHARSET_PORT_3306_TCP_ADDR '$MYSQL_DB_PREFIX'production > /backup/production-latest.sql;'
 
 make_test_database:
   script:
@@ -26,7 +27,7 @@ make_test_database:
     - docker run --rm --link super5-db:mysql-charset -v /backup/$PROJECT_NAME:/backup $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c "mysql -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR -e \"DROP DATABASE IF EXISTS $MYSQL_DB_PREFIX$BRANCH\"; mysql -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR -e \"CREATE DATABASE $MYSQL_DB_PREFIX$BRANCH\"; mysql -u root -p\$MYSQL_CHARSET_ENV_MYSQL_ROOT_PASSWORD -h\$MYSQL_CHARSET_PORT_3306_TCP_ADDR $MYSQL_DB_PREFIX$BRANCH < /backup/develop-latest.sql;"
   except:
     - master
-    - develop
+    - production
 
 deploy:
   script:
