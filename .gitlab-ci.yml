@@ -35,11 +35,31 @@ deploy:
     - MYSQL_DATABASE_NAME=$MYSQL_DB_PREFIX$BRANCH;
     - docker rm -f $DOCKER_IMAGE_NAME-$BRANCH || true;
     - docker run --rm --link super5-db:mysql-charset -e MYSQL_DATABASE_NAME=$MYSQL_DATABASE_NAME $DOCKER_IMAGE_NAME-$BRANCH /bin/sh -c 'cd /opt/app && python3 manage.py migrate --noinput --settings=Project.production_settings'
-    - docker run --name $DOCKER_IMAGE_NAME-$BRANCH --link super5-db:mysql-charset -e MYSQL_DATABASE_NAME=$MYSQL_DATABASE_NAME -p 0.0.0.0::80 -d $DOCKER_IMAGE_NAME-$BRANCH sh /opt/app/Deploy/start_in_docker.sh;
+    - docker run --name $DOCKER_IMAGE_NAME-$BRANCH -v /docker_volumes/$DOCKER_IMAGE_NAME/$BRANCH-media:/opt/app/media --link super5-db:mysql-charset -e MYSQL_DATABASE_NAME=$MYSQL_DATABASE_NAME -p 0.0.0.0::80 -d $DOCKER_IMAGE_NAME-$BRANCH sh /opt/app/Deploy/start_in_docker.sh;
+
+setup_nginx:
+  script:
+    - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
+    - export BRANCH=${BRANCH,,};
     - CONTAINER_PORT=$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{(index $conf 0).HostPort}}{{end}}' $DOCKER_IMAGE_NAME-$BRANCH)
     - export CONTAINER_PORT;
-    - envsubst '$BRANCH $CONTAINER_PORT $DOCKER_IMAGE_NAME' < ./Deploy/nginx-site-enabled > /etc/nginx/sites-enabled/$DOCKER_IMAGE_NAME-$BRANCH
+    - envsubst '$BRANCH $CONTAINER_PORT $DOCKER_IMAGE_NAME $PROJECT_NAME' < ./Deploy/nginx-site-enabled > /etc/nginx/sites-enabled/$DOCKER_IMAGE_NAME-$BRANCH
     - sudo /etc/init.d/nginx restart;
-    - echo "Url $BRANCH.guru.huskyjam.com"
+    - echo "Url $BRANCH.$PROJECT_NAME.huskyjam.com"
+  except:
+    - production
+
+setup_nginx_production:
+  script:
+    - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
+    - export BRANCH=${BRANCH,,};
+    - CONTAINER_PORT=$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{(index $conf 0).HostPort}}{{end}}' $DOCKER_IMAGE_NAME-$BRANCH)
+    - export CONTAINER_PORT;
+    - printenv;
+    - envsubst '$BRANCH $CONTAINER_PORT $DOCKER_IMAGE_NAME $PROJECT_NAME' < ./Deploy/nginx-production-site-enabled > /etc/nginx/sites-enabled/$DOCKER_IMAGE_NAME-$BRANCH
+    - sudo /etc/init.d/nginx restart;
+    - echo "Url $PROJECT_NAME.huskyjam.com"
+  only:
+    - production
 
 
