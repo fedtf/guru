@@ -49,6 +49,10 @@ class GitlabProject(GitlabModelExtension):
     project = models.ForeignKey('Project', related_name='gitlab_projects', null=True, blank=True)
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
 
+    @property
+    def gitlab_opened_milestones(self):
+        return self.gitlab_milestones.filter(closed=False).all()
+
     def __str__(self):
         return self.name_with_namespace
 
@@ -57,6 +61,7 @@ class GitLabMilestone(models.Model):
     gitlab_milestone_id = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
+    closed = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

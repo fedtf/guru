@@ -14,7 +14,6 @@ from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilest
 def get_gitlab(request=None, redirect_uri=''):
     client_id = settings.GITLAB_APPLICATION_ID
     if request is None:
-
         gitlab = OAuth2Session(client_id, redirect_uri=redirect_uri)
     else:
         gitlab = OAuth2Session(client_id, token=json.loads(request.user.gitlabauthorisation.token.replace("'", '"')))
@@ -92,6 +91,7 @@ def load_new_and_update_existing_projects_from_gitlab(request):
                 gitlab_project=gitlab_project
             )[0]
             gitlab_milestone.name = milestone['title']
+            gitlab_milestone.closed = milestone['state'] != 'active'
             gitlab_milestone.save()
 
         issues = json.loads(
