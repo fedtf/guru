@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    {% for user in user_list %}
+        <div class="well">
+            {{ user.username }}
+            {% for time_record in user.issues_time_spent_records.all %}
+                {{ time_record.time_start }}
+                {{ time_record.gitlab_issue.name }}
+                {{ time_record.gitlab_issue.gitlab_milestone.name}}
+                {{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}
+                {{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.project.name }}
+            {% endfor %}
+        </div>
+    {% endfor %}
+{% endblock %}

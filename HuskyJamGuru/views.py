@@ -1,6 +1,7 @@
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
+from django.contrib.auth.models import User
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
@@ -72,3 +73,12 @@ class IssueTimeAssessmentCreate(CreateView):
         form.fields['gitlab_issue'].widget.attrs['disabled'] = True
         form.fields['user'].widget.attrs['disabled'] = True
         return form
+
+class WorkReportListView(ListView):
+    template_name = 'HuskyJamGuru/work_report_list.html'
+    query_string = '{}__{}__{}__{}__{}'.format('issues_time_spent_records',
+                                           'gitlab_issue',
+                                           'gitlab_milestone',
+                                           'gitlab_project',
+                                           'project')
+    queryset = User.objects.all().prefetch_related(query_string)

@@ -1,7 +1,7 @@
 from django.conf.urls import url, include
 
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
-    synchronise_with_gitlab
+    synchronise_with_gitlab, WorkReportListView
 
 
 urlpatterns = [
@@ -14,5 +14,6 @@ urlpatterns = [
         IssueTimeAssessmentCreate.as_view(),
         name='issue-time-assessment-create'
     ),
+    url(r'^work-report-list/$', WorkReportListView.as_view(), name='work-report-list'),
     url(r'^api/', include('HuskyJamGuru.urls_api')),
 ]
