@@ -23,8 +23,7 @@ class WorkReportListTest(TestCase):
         self.assertTemplateUsed(response, 'HuskyJamGuru/work_report_list.html')
 
     def test_work_report_list_contains_all_users(self):
-        all_users = User.objects.all()
-        User.objects.create_user(username='testuser1', password='pass')all_users.count()
+        User.objects.create_user(username='testuser1', password='pass')
         User.objects.create_user(username='testuser2', password='pass')
         response = self.client.get('/work-report-list/')
         self.assertEqual(response.context['user_list'].count(), 3)

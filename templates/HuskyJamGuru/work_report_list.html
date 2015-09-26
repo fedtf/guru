@@ -1,16 +1,37 @@
 {% extends 'base.html' %}
+{% load settings_value %}
 
 {% block content %}
-    {% for user in user_list %}
-        <div class="well">
-            {{ user.username }}
-            {% for time_record in user.issues_time_spent_records.all %}
-                {{ time_record.time_start }}
-                {{ time_record.gitlab_issue.name }}
-                {{ time_record.gitlab_issue.gitlab_milestone.name}}
-                {{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}
-                {{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.project.name }}
+    <div class="bs-docs-section">
+        <div class="row">
+            {% for user in user_list %}
+            <div class="col-lg-3">
+                <h2>{{ user.username }}</h2>
+                <div class="panel panel-default">
+                    {% for time_record in user.issues_time_spent_records.all %}
+                    <div class="panel panel-success">
+                        <div class="panel-heading">
+                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}/issues/{{time_record.gitlab_issue.id }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
+                            <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                        </div>
+                        <div class="panel-body">
+                            <small>Milestone: </small>
+                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}/milestones/{{time_record.gitlab_issue.gitlab_milestone.gitlab_milestone_id }}">
+                                <small class="milestone-name">{{time_record.gitlab_issue.gitlab_milestone.name }}</small><br/>
+                            </a>
+                            <small>Project: </small>
+                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}">
+                            <small class="gitlab-project-name">{{time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}</small><br/>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% if forloop.counter|divisibleby:4 %}
+                <div class="clearfix"></div>
+            {% endif %}
             {% endfor %}
         </div>
-    {% endfor %}
+    </div>
 {% endblock %}

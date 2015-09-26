@@ -42,7 +42,7 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'bootstrap3',
     'HuskyJamGuru',
-    'rest_framework'
+    'rest_framework',
 )
 
 MIDDLEWARE_CLASSES = (
