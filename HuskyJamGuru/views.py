@@ -47,6 +47,16 @@ class ProjectDetailView(DetailView):
         return context
 
 
+class ProjectReportView(DetailView):
+    template_name = "HuskyJamGuru/project_report.html"
+    model = Project
+    context_object_name = 'project'
+
+    def get_context_data(self, **kwargs):
+        context = super(ProjectReportView, self).get_context_data(**kwargs)
+        print(dir(self.object.gitlab_projects))
+        return context
+
 class IssueTimeAssessmentCreate(CreateView):
     template_name = "HuskyJamGuru/issue_time_assessment_create.html"
     model = IssueTimeAssessment

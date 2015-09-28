@@ -2,7 +2,8 @@ from django.test import TestCase
 from django.core.urlresolvers import resolve
 from django.contrib.auth import get_user_model
 
-from .views import WorkReportListView
+from .views import WorkReportListView, ProjectReportView
+from .models import Project
 
 
 class WorkReportListTest(TestCase):
@@ -34,3 +35,24 @@ class WorkReportListTest(TestCase):
         get_user_model().objects.create_user(username='testuser2', password='pass')
         response = self.client.get('/work-report-list/')
         self.assertEqual(response.context['user_list'].count(), 3)
+
+
+class ProjectReportTest(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user(username='test', password='testpass',
+                                                  email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        new_project = Project.objects.create(name='testproject')
+        self.page_url = '/project-report/{}/'.format(new_project.pk)
+
+    def test_url_resolves_to_project_report_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, ProjectReportView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/project_report.html')
