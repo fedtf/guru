@@ -1,4 +1,4 @@
-from  django.test import TestCase, Client
+from django.test import TestCase
 from django.core.urlresolvers import resolve
 from django.contrib.auth.models import User
 
@@ -7,7 +7,7 @@ from .views import WorkReportListView
 
 class WorkReportListTest(TestCase):
     def setUp(self):
-        new_user = User.objects.create_user(username='test', password='testpass')
+        User.objects.create_user(username='test', password='testpass')
         self.client.login(username='test', password='testpass')
 
     def test_url_resolves_to_work_report_list_view(self):

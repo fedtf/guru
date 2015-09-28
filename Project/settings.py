@@ -43,6 +43,7 @@ INSTALLED_APPS = (
     'bootstrap3',
     'HuskyJamGuru',
     'rest_framework',
+    'debug_toolbar',
 )
 
 MIDDLEWARE_CLASSES = (

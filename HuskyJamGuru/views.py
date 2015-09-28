@@ -74,10 +74,11 @@ class IssueTimeAssessmentCreate(CreateView):
         form.fields['user'].widget.attrs['disabled'] = True
         return form
 
+
 class WorkReportListView(ListView):
     template_name = 'HuskyJamGuru/work_report_list.html'
     prefetch_string = '{}__{}__{}'.format('issues_time_spent_records',
-                                              'gitlab_issue',
-                                              'gitlab_milestone',
-                                              )
+                                          'gitlab_issue',
+                                          'gitlab_milestone',
+                                         )
     queryset = User.objects.all().prefetch_related(prefetch_string)
