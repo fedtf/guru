@@ -48,6 +48,9 @@
                     {% if user.is_superuser %}
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}
+                    {% if user.is_superuser %}
+                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">История задач</a></li>
+                    {% endif %}
                 {% endif %}
             </ul>
             <ul class="nav navbar-nav navbar-right">
