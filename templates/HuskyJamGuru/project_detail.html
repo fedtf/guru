@@ -33,9 +33,9 @@
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
                 {{ gitlab_project.name }} <br><br>
-                {% for milestone in gitlab_project.gitlab_milestones.all %}
+                {% for milestone in gitlab_project.gitlab_opened_milestones %}
                     <div class="panel panel-default">
-                        <div class="panel-heading"><a target="_blank" href ="{% settings_value "GITLAB_URL" %}/root/{{ gitlab_project.name }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a> <small class="pull-right"></small></div>
+                        <div class="panel-heading"><a target="_blank" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a> <small class="pull-right"></small></div>
                         <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
                             <div class="col-lg-3 drop-row">
                                 <div class="col-lg-12 dropable open-row">
