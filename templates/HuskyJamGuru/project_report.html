@@ -62,109 +62,103 @@
 {% endblock %}
 
 {% block content %}
-
-    <div style="display: none;" id="panel-for-copying">
-        <div class="panel panel-success">
-            <div class="panel-heading"><a href="#" class="issue-name"></a>
-                <br>(<small class="issue-heading-time"></small>)
-            </div>
-            <div class="panel-body">
-                <small class="issue-body"></small>
-            </div>
-        </div>
-    </div>
-
-
     <div class="bs-docs-section">
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
-                <h1 class="page-header center">{{ gitlab_project.name }}</h1>
-                <svg id="visualisation" width="1000" height="500" class="chart"></svg>
+                <h1 class="page-header text-center">{{ gitlab_project.name }}</h1>
+                <svg id="{{ forloop.counter0 }}" width="1000" height="500" class="chart"></svg>
             {% endfor %}
         </div>
     </div>
     <script>
+        dataForProjects = [
+        {% for gitlab_project in project.gitlab_projects.all %}
+        {
+            'creationDate': new Date({{ gitlab_project.creation_date|date:"Y,n-1,j" }}),
+            'finishDateAssessment':new Date({{ gitlab_project.finish_date_assessment|date:"Y,n-1,j" }}),
+            'lineDataActual':[
+                {
+                    'x':new Date({{ gitlab_project.creation_date|date:"Y,n-1,j" }}),
+                    'y':{{ gitlab_project.issues.count }}
+                },
+                {% for elem in gitlab_project.report_list %}
+                {
+                    'x': new Date({{ elem.date|date:"Y,n-1,j" }}),
+                    'y': {{ elem.issues }}
+                },
+                {% endfor %}
+            ],
+            'xDomain': [
+                {% with gitlab_project.report_list|first as first %}
+                    new Date({{ first.date|date:"Y,n-1,j" }}),
+                {% endwith %}
+                new Date({{ gitlab_project.finish_date_assessment|date:"Y,n-1,j" }}),
+            ],
+        },
+        {% endfor %}
+        ];
+
         $(function() {
-            initChart();
+            var svg = d3.select(".chart")
+            svg.each(initChart);
         });
 
         function initChart() {
+            
+            var svg = d3.select(this);
+            var elemData = dataForProjects[svg.attr("id")];
+            
+            var creationDate = elemData['creationDate'];
+            var finishDateAssessment = elemData['finishDateAssessment'];
+            var lineDataActual = elemData['lineDataActual'];
+            var xRange = elemData['xRange'];
 
-          var lineDataActual = [{
-            'x': 0,
-            'y': 200
-          }, {
-            'x': 10,
-            'y': 50
-          }, {
-            'x': 20,
-            'y': 180
-          }, {
-            'x': 30,
-            'y': 60
-          }, {
-            'x': 40,
-            'y': 120
-          }, {
-            'x': 50,
-            'y': 30
-          }];
-
-          var svg = d3.select("#visualisation"),
-            width = 1000,
+            var width = 1000,
             height = 500,
             margins = {
               top: 80,
-              right: 50,
+              right: 30,
               bottom: 80,
               left: 80
-            },
-            xMin = d3.min(lineDataActual, function(d) {
-              return d.x;
-            }),
-            xMax = d3.max(lineDataActual, function(d) {
-              return d.x;
-            }),
-            yMin = d3.min(lineDataActual, function(d) {
-              return d.y;
-            }),
+            };
+
+            xMin = creationDate,
+            xMax = finishDateAssessment,
+            yMin = 0,
             yMax = d3.max(lineDataActual, function(d) {
               return d.y;
-            }),
+            });
 
-            xRange = d3.scale.linear().range([margins.left, width - margins.right]).domain([
-
-              xMin, xMax
-            ]),
-
+            xRange = d3.time.scale().range([margins.left, width - margins.right]).domain(elemData['xDomain'])
+            
             yRange = d3.scale.linear().range([height - margins.top, margins.bottom]).domain([
-
               yMin, yMax
             ]),
-
+            
             xAxis = d3.svg.axis()
             .scale(xRange)
-            .tickSubdivide(true),
+            .ticks(d3.time.days, 1)
+            .tickSubdivide(0)
 
             yAxis = d3.svg.axis()
             .scale(yRange)
             .orient("left")
-            .tickSubdivide(true);
-
+            .tickFormat(d3.format("d"))
+            .tickSubdivide(0);
+        
           function make_x_axis() {
             return d3.svg.axis()
               .scale(xRange)
               .orient("bottom")
-              .tickSubdivide(true)
+              .tickSubdivide(0)
           }
-
+            
           function make_y_axis() {
             return d3.svg.axis()
               .scale(yRange)
               .orient("left")
-              .tickSubdivide(true)
+              .tickSubdivide(0)
           }
-
           svg.append("g")
             .attr("class", "grid")
             .attr("transform", "translate(0," + (height - margins.top) + ")")
@@ -172,7 +166,6 @@
               .tickSize((-height) + (margins.top + margins.bottom), 0, 0)
               .tickFormat("")
             )
-
           svg.append("g")
             .attr("class", "grid")
             .attr("transform", "translate(" + (margins.left) + ",0)")
@@ -229,8 +222,8 @@
             .attr("y", 6)
             .attr("dy", ".75em")
             .attr("transform", "rotate(-90)")
-            .text("Hours remaining");
+            .text("Issues remaining");
 
         }
-</script>
-{% endblock %}
+        </script>
+    {% endblock %}

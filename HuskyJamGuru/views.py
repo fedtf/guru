@@ -44,6 +44,8 @@ class ProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(self.__class__, self).get_context_data(**kwargs)
+        context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
+                                                                            project=self.object)
         return context
 
 
@@ -54,8 +56,8 @@ class ProjectReportView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectReportView, self).get_context_data(**kwargs)
-        print(dir(self.object.gitlab_projects))
         return context
+
 
 class IssueTimeAssessmentCreate(CreateView):
     template_name = "HuskyJamGuru/issue_time_assessment_create.html"

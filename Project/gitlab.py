@@ -79,6 +79,7 @@ def load_new_and_update_existing_projects_from_gitlab(request):
         gitlab_project.name = project['name']
         gitlab_project.path_with_namespace = project['path_with_namespace']
         gitlab_project.name_with_namespace = project['name_with_namespace']
+        gitlab_project.creation_time = project['created_at']
         gitlab_project.save()
         milestones = json.loads(
             get_gitlab(request).get(

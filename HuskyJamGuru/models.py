@@ -3,6 +3,7 @@ import datetime
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.utils import timezone
 
 
 class Project(models.Model):
@@ -19,9 +20,10 @@ class UserToProjectAccess(models.Model):
     TYPE_CHOICES = (
         ('administrator', 'Administrator'),
         ('developer', 'Developer'),
+        ('manager', 'Manager'),
     )
 
-    type = models.CharField(max_length=100)
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
 
     @staticmethod
     def get_projects_queryset_user_has_access_to(user, access='developer'):
@@ -48,10 +50,25 @@ class GitlabProject(GitlabModelExtension):
     name_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
     project = models.ForeignKey('Project', related_name='gitlab_projects', null=True, blank=True)
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
+    creation_date = models.DateField()
+    finish_date_assessment = models.DateField()
 
     @property
     def gitlab_opened_milestones(self):
         return self.gitlab_milestones.filter(closed=False).all()
+
+    @property
+    def report_list(self):
+        report_list = []
+        closed = 0
+        issues_number = self.issues.count()
+        for i in range((timezone.now().date() - self.creation_date).days + 1):
+            date = self.creation_date + datetime.timedelta(days=i)
+            for issue in self.issues.all():
+                if issue.is_closed and issue.closed_at == date:
+                    closed += 1
+            report_list.append({'date': date, 'issues': issues_number - closed})
+        return report_list
 
     def __str__(self):
         return self.name_with_namespace
@@ -92,6 +109,17 @@ class GitLabIssue(models.Model):
                 type='open'
             )
             return c_type
+
+    @property
+    def is_closed(self):
+        return self.current_type.type == 'closed'
+
+    @property
+    def closed_at(self):
+        if self.is_closed:
+            return self.current_type.time.date()
+        else:
+            return None
 
     @property
     def spent_minutes(self):
@@ -143,7 +171,7 @@ class IssueTimeSpentRecord(models.Model):
 
 
 class IssueTypeUpdate(models.Model):
-    gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_update')
+    gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_updates')
     type = models.CharField(max_length=100)
     author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)

@@ -40,7 +40,7 @@ class WorkReportListTest(TestCase):
 class ProjectReportTest(TestCase):
     def setUp(self):
         get_user_model().objects.create_user(username='test', password='testpass',
-                                                  email='testadmin@example.com')
+                                             email='testadmin@example.com')
         self.client.login(username='test', password='testpass')
         new_project = Project.objects.create(name='testproject')
         self.page_url = '/project-report/{}/'.format(new_project.pk)
