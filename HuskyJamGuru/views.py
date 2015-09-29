@@ -1,9 +1,18 @@
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import user_passes_test
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
+
+
+class AdminRequiredMixin(object):
+    @classmethod
+    def as_view(cls, **initkwargs):
+        view = super(AdminRequiredMixin, cls).as_view(**initkwargs)
+        return user_passes_test(lambda u: u.is_superuser)(view)
 
 
 class Login(TemplateView):
@@ -72,3 +81,12 @@ class IssueTimeAssessmentCreate(CreateView):
         form.fields['gitlab_issue'].widget.attrs['disabled'] = True
         form.fields['user'].widget.attrs['disabled'] = True
         return form
+
+
+class WorkReportListView(AdminRequiredMixin, ListView):
+    template_name = 'HuskyJamGuru/work_report_list.html'
+    prefetch_string = '{}__{}__{}'.format('issues_time_spent_records',
+                                          'gitlab_issue',
+                                          'gitlab_milestone')
+    queryset = get_user_model().objects.all().prefetch_related(prefetch_string)\
+                                             .select_related('gitlabauthorisation__name')

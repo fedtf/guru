@@ -86,13 +86,12 @@ class GitLabIssue(models.Model):
         try:
             c_type = IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get()
             return c_type
-        except Exception as e:
+        except Exception:
             c_type = IssueTypeUpdate(
                 gitlab_issue=self,
                 type='open'
             )
             return c_type
-
 
     @property
     def spent_minutes(self):
@@ -138,6 +137,9 @@ class IssueTimeSpentRecord(models.Model):
     @property
     def seconds(self):
         return (self.time_stop - self.time_start).total_seconds()
+
+    class Meta:
+        ordering = ['-time_start']
 
 
 class IssueTypeUpdate(models.Model):

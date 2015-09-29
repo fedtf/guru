@@ -10,6 +10,7 @@ test_image_code:
     - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
     - export BRANCH=${BRANCH,,};
     - docker run --rm $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'flake8 --ignore=E501,F403 ./'
+    - docker run --rm $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'python3 ./manage.py test'
 
 backup_databases:
   script:

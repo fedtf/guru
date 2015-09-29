@@ -4,3 +4,4 @@ django-bootstrap3
 flake8
 requests_oauthlib
 djangorestframework
+django-debug-toolbar
