@@ -138,6 +138,9 @@ class IssueTimeSpentRecord(models.Model):
     def seconds(self):
         return (self.time_stop - self.time_start).total_seconds()
 
+    class Meta:
+        ordering = ['-time_start']
+
 
 class IssueTypeUpdate(models.Model):
     gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_update')
