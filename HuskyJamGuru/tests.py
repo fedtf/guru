@@ -67,7 +67,7 @@ class ProjectReportTest(TestCase):
 
         new_project = Project(name="test_project")
         new_project.creation_date = today - datetime.timedelta(days=4)
-        new_project.finish_date_assessment = timezone.now()
+        new_project.finish_date_assessment = timezone.now().date()
         new_project.save()
 
         new_gitlab_project = GitlabProject(name="test_gitlab_project")
