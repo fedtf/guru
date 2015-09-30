@@ -24,7 +24,8 @@ class Project(models.Model):
         report_list = []
         closed = 0
         issues_number = self.issues_number
-        for i in range((timezone.now().date() - self.creation_date).days + 1):
+        end_date = min(timezone.now().date(), self.finish_date_assessment)
+        for i in range((end_date - self.creation_date).days + 1):
             date = self.creation_date + datetime.timedelta(days=i)
             closed += self.issues_type_updates.filter(time__contains=date,
                                                       type='closed').count()
