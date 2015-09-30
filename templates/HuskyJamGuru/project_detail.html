@@ -33,9 +33,9 @@
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
                 {{ gitlab_project.name }} 
-                {% if user_to_project_access.type == 'developer' %}
+                {% if user_to_project_access.type == 'manager' %}
                     <a href="{% url 'HuskyJamGuru:project-report' gitlab_project.pk %}" 
-                        class="report-list pull-right">Отчет по проекту</a>
+                        class="report-list pull-right">Project report</a>
                 {% endif %}<br><br>
                 {% for milestone in gitlab_project.gitlab_opened_milestones %}
                     <div class="panel panel-default">

@@ -8,6 +8,28 @@ from django.utils import timezone
 
 class Project(models.Model):
     name = models.CharField(max_length=500, default="")
+    creation_date = models.DateField()
+    finish_date_assessment = models.DateField()
+
+    @property
+    def issues_number(self):
+        issues_number = 0
+        gitlab_projects = self.gitlab_projects.all()
+        for gitlab_project in gitlab_projects:
+            issues_number += gitlab_project.issues.count()
+        return issues_number
+
+    @property
+    def report_list(self):
+        report_list = []
+        closed = 0
+        issues_number = self.issues_number
+        for i in range((timezone.now().date() - self.creation_date).days + 1):
+            date = self.creation_date + datetime.timedelta(days=i)
+            closed += self.issues_type_updates.filter(time__contains=date,
+                                                      type='closed').count()
+            report_list.append({'date': date, 'issues': issues_number - closed})
+        return report_list
 
     def __str__(self):
         return self.name
@@ -50,25 +72,10 @@ class GitlabProject(GitlabModelExtension):
     name_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
     project = models.ForeignKey('Project', related_name='gitlab_projects', null=True, blank=True)
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
-    creation_date = models.DateField()
-    finish_date_assessment = models.DateField()
 
     @property
     def gitlab_opened_milestones(self):
         return self.gitlab_milestones.filter(closed=False).all()
-
-    @property
-    def report_list(self):
-        report_list = []
-        closed = 0
-        issues_number = self.issues.count()
-        for i in range((timezone.now().date() - self.creation_date).days + 1):
-            date = self.creation_date + datetime.timedelta(days=i)
-            for issue in self.issues.all():
-                if issue.is_closed and issue.closed_at == date:
-                    closed += 1
-            report_list.append({'date': date, 'issues': issues_number - closed})
-        return report_list
 
     def __str__(self):
         return self.name_with_namespace
@@ -176,6 +183,7 @@ class IssueTypeUpdate(models.Model):
     author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)
     is_current = models.BooleanField(default=True)
+    project = models.ForeignKey(Project, related_name='issues_type_updates')
 
     def save(self, *args, **kwargs):
         if not self.pk:

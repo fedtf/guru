@@ -64,54 +64,39 @@
 {% block content %}
     <div class="bs-docs-section">
         <div class="row">
-            {% for gitlab_project in project.gitlab_projects.all %}
-                <h1 class="page-header text-center">{{ gitlab_project.name }}</h1>
-                <svg id="{{ forloop.counter0 }}" width="1000" height="500" class="chart"></svg>
-            {% endfor %}
+            <h1 class="page-header text-center">{{ project.name }}</h1>
+            <svg id="visualisation" width="1000" height="500" class="chart"></svg>
         </div>
     </div>
     <script>
-        dataForProjects = [
-        {% for gitlab_project in project.gitlab_projects.all %}
-        {
-            'creationDate': new Date({{ gitlab_project.creation_date|date:"Y,n-1,j" }}),
-            'finishDateAssessment':new Date({{ gitlab_project.finish_date_assessment|date:"Y,n-1,j" }}),
-            'lineDataActual':[
+        $(function() {
+            initChart();
+        });
+
+        function initChart() {
+            
+            var svg = d3.select("#visualisation");
+            
+            var creationDate = new Date({{ project.creation_date|date:"Y,n-1,j" }});
+            var finishDateAssessment = new Date({{ project.finish_date_assessment|date:"Y,n-1,j" }});
+            var lineDataActual = [
                 {
-                    'x':new Date({{ gitlab_project.creation_date|date:"Y,n-1,j" }}),
-                    'y':{{ gitlab_project.issues.count }}
+                    'x':new Date({{ project.creation_date|date:"Y,n-1,j" }}),
+                    'y':{{ project.issues_number }}
                 },
-                {% for elem in gitlab_project.report_list %}
+                {% for elem in report_list %}
                 {
                     'x': new Date({{ elem.date|date:"Y,n-1,j" }}),
                     'y': {{ elem.issues }}
                 },
                 {% endfor %}
-            ],
-            'xDomain': [
-                {% with gitlab_project.report_list|first as first %}
+            ];
+            var xDomain = [
+                {% with report_list|first as first %}
                     new Date({{ first.date|date:"Y,n-1,j" }}),
                 {% endwith %}
-                new Date({{ gitlab_project.finish_date_assessment|date:"Y,n-1,j" }}),
-            ],
-        },
-        {% endfor %}
-        ];
-
-        $(function() {
-            var svg = d3.select(".chart")
-            svg.each(initChart);
-        });
-
-        function initChart() {
-            
-            var svg = d3.select(this);
-            var elemData = dataForProjects[svg.attr("id")];
-            
-            var creationDate = elemData['creationDate'];
-            var finishDateAssessment = elemData['finishDateAssessment'];
-            var lineDataActual = elemData['lineDataActual'];
-            var xRange = elemData['xRange'];
+                new Date({{ project.finish_date_assessment|date:"Y,n-1,j" }}),
+            ];
 
             var width = 1000,
             height = 500,
@@ -129,7 +114,7 @@
               return d.y;
             });
 
-            xRange = d3.time.scale().range([margins.left, width - margins.right]).domain(elemData['xDomain'])
+            xRange = d3.time.scale().range([margins.left, width - margins.right]).domain(xDomain)
             
             yRange = d3.scale.linear().range([height - margins.top, margins.bottom]).domain([
               yMin, yMax

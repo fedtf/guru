@@ -28,7 +28,7 @@ class ProjectListView(ListView):
         return UserToProjectAccess.get_projects_queryset_user_has_access_to(self.request.user, 'developer')
 
     def get_context_data(self, **kwargs):
-        context = super(self.__class__, self).get_context_data(**kwargs)
+        context = super(ProjectListView, self).get_context_data(**kwargs)
         return context
 
 
@@ -43,7 +43,7 @@ class ProjectDetailView(DetailView):
     context_object_name = 'project'
 
     def get_context_data(self, **kwargs):
-        context = super(self.__class__, self).get_context_data(**kwargs)
+        context = super(ProjectDetailView, self).get_context_data(**kwargs)
         context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
                                                                             project=self.object)
         return context
@@ -56,6 +56,7 @@ class ProjectReportView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectReportView, self).get_context_data(**kwargs)
+        context['report_list'] = self.object.report_list
         return context
 
 
@@ -66,7 +67,7 @@ class IssueTimeAssessmentCreate(CreateView):
     success_url = reverse_lazy("HuskyJamGuru:project-list")
 
     def get_context_data(self, **kwargs):
-        context = super(self.__class__, self).get_context_data(**kwargs)
+        context = super(IssueTimeAssessmentCreate, self).get_context_data(**kwargs)
         return context
 
     def post(self, request, *args, **kwargs):
