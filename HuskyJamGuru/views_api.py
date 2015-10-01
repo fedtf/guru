@@ -20,6 +20,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
         return IssueTypeUpdate.objects.all()
 
     def create(self, request, *args, **kwargs):
+        print(123)
         issue = GitLabIssue.objects.get(pk=request.data['gitlab_issue'])
         if issue.current_type.type != 'in_progress' \
                 and request.data['type'] == 'in_progress':
