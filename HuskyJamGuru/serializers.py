@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord, GitlabAuthorisation
+from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord, GitlabAuthorisation, Project
 
 
 class IssueTimeSpentRecordSerializer(serializers.HyperlinkedModelSerializer):
@@ -26,9 +26,13 @@ class IssueTypeUpdateSerializer(serializers.HyperlinkedModelSerializer):
         many=False, read_only=True,
     )
 
+    project = serializers.PrimaryKeyRelatedField(
+        many=False, read_only=False, queryset=Project.objects.all()
+    )
+
     class Meta:
         model = IssueTypeUpdate
-        fields = ('gitlab_issue', 'type', 'pk', 'author')
+        fields = ('gitlab_issue', 'type', 'pk', 'author', 'project')
 
 
 class GitlabAuthorisationSerializer(serializers.HyperlinkedModelSerializer):

@@ -1,8 +1,14 @@
+import logging
+
 from rest_framework import viewsets
+from rest_framework import status
+from rest_framework.response import Response
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
 from Project.gitlab import reassign_issue
+
+logger = logging.getLogger(__name__)
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
@@ -33,9 +39,11 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                         gitlab_issue=type_update.gitlab_issue,
                         type='open',
                         author=request.user,
+                        project_id=type_update.gitlab_issue.gitlab_project.project
                     )
                     new_update.save()
             reassign_issue(request, issue, request.user.gitlabauthorisation)
+        request.data['project'] = issue.gitlab_project.project.pk
         return super(self.__class__, self).create(request, *args, **kwargs)
 
 
