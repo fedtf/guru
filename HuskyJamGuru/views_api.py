@@ -1,8 +1,14 @@
+import logging
+
 from rest_framework import viewsets
+from rest_framework import status
+from rest_framework.response import Response
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
 from Project.gitlab import reassign_issue
+
+logger = logging.getLogger(__name__)
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
@@ -20,7 +26,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
         return IssueTypeUpdate.objects.all()
 
     def create(self, request, *args, **kwargs):
-        print(123)
+        logger.warning('creating issue type update')
         issue = GitLabIssue.objects.get(pk=request.data['gitlab_issue'])
         if issue.current_type.type != 'in_progress' \
                 and request.data['type'] == 'in_progress':
@@ -30,6 +36,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                     author=request.user, type='in_progress', is_current=True
             ).all():
                 if type_update.gitlab_issue != issue:
+                    logger.warning('creating issue type update 1')
                     new_update = IssueTypeUpdate(
                         gitlab_issue=type_update.gitlab_issue,
                         type='open',
@@ -37,6 +44,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                         project_id=type_update.gitlab_issue.gitlab_project.project
                     )
                     new_update.save()
+                    logger.warning('creating issue type update 2')
             reassign_issue(request, issue, request.user.gitlabauthorisation)
         return super(self.__class__, self).create(request, *args, **kwargs)
 
