@@ -26,7 +26,6 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
         return IssueTypeUpdate.objects.all()
 
     def create(self, request, *args, **kwargs):
-        logger.warning('creating issue type update')
         issue = GitLabIssue.objects.get(pk=request.data['gitlab_issue'])
         if issue.current_type.type != 'in_progress' \
                 and request.data['type'] == 'in_progress':
@@ -36,7 +35,6 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                     author=request.user, type='in_progress', is_current=True
             ).all():
                 if type_update.gitlab_issue != issue:
-                    logger.warning('creating issue type update 1')
                     new_update = IssueTypeUpdate(
                         gitlab_issue=type_update.gitlab_issue,
                         type='open',
@@ -44,8 +42,8 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                         project_id=type_update.gitlab_issue.gitlab_project.project
                     )
                     new_update.save()
-                    logger.warning('creating issue type update 2')
             reassign_issue(request, issue, request.user.gitlabauthorisation)
+        request.data['project'] = issue.gitlab_project.project.pk
         return super(self.__class__, self).create(request, *args, **kwargs)
 
 
