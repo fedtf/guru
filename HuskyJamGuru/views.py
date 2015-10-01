@@ -1,11 +1,13 @@
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import redirect, render
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
-from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
+from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
+    GitLabMilestone
 
 
 class AdminRequiredMixin(object):
@@ -47,6 +49,41 @@ class ProjectDetailView(DetailView):
         context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
                                                                             project=self.object)
         return context
+
+
+def sort_milestones(request):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method == 'POST':
+        milestone_id = request.POST.get('milestone_id')
+        direction = request.POST.get('direction')
+
+        milestone = GitLabMilestone.objects.get(pk=milestone_id)
+        milestone_priority = milestone.priority
+
+        if direction == 'up':
+            next_milestone = milestone.gitlab_project.gitlab_milestones\
+                .filter(priority__lt=milestone_priority).last()
+            if next_milestone is not None:
+                milestone.priority = next_milestone.priority
+                next_milestone.priority = milestone_priority
+
+                milestone.save()
+                next_milestone.save()
+        elif direction == 'down':
+            prev_milestone = milestone.gitlab_project.gitlab_milestones\
+                .filter(priority__gt=milestone_priority).first()
+            if prev_milestone is not None:
+                milestone.priority = prev_milestone.priority
+                prev_milestone.priority = milestone_priority
+
+                milestone.save()
+                prev_milestone.save()
+
+        return redirect(reverse_lazy('HuskyJamGuru:project-detail',
+                                     kwargs={'pk': milestone.gitlab_project.project.pk}))
+    else:
+        return render(reverse_lazy('project-list'))
 
 
 class ProjectReportView(DetailView):

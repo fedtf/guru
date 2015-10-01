@@ -87,9 +87,22 @@ class GitLabMilestone(models.Model):
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
+    priority = models.IntegerField(editable=False)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            last_milestone = self.gitlab_project.gitlab_milestones.last()
+            if last_milestone is not None:
+                self.priority = last_milestone.priority + 1
+            else:
+                self.priority = 1
+        super(GitLabMilestone, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        ordering = ['priority']
 
 
 class GitLabIssue(models.Model):

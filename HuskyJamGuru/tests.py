@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .views import WorkReportListView, ProjectReportView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone
 
 
 class WorkReportListTest(TestCase):
@@ -116,3 +116,80 @@ class ProjectReportTest(TestCase):
                        {'date': today - datetime.timedelta(days=0), 'issues': 1}]
 
         self.assertEquals(report_list, assert_list)
+
+
+class MilestoneSortTest(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                  email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+
+    def create_data(self):
+        project = Project(name='testproject', creation_date=timezone.now(),
+                          finish_date_assessment=timezone.now())
+        project.save()
+
+        gitlab_project = GitlabProject(name='gitlabtestproject', gitlab_id=4,
+                                       project=project)
+        gitlab_project.save()
+
+        mile1 = GitLabMilestone(name='mile1', gitlab_project=gitlab_project,
+                                gitlab_milestone_id=1)
+        mile1.save()
+
+        mile2 = GitLabMilestone(name='mile2', gitlab_project=gitlab_project,
+                                gitlab_milestone_id=2)
+        mile2.save()
+
+        mile3 = GitLabMilestone(name='mile3', gitlab_project=gitlab_project,
+                                gitlab_milestone_id=3)
+        mile3.save()
+
+        return (mile1, mile2, mile3)
+
+    def test_new_milestone_created_with_right_priority(self):
+        mile1, mile2, mile3 = self.create_data()
+
+        self.assertEqual(mile1.priority, 1)
+        self.assertEqual(mile2.priority, 2)
+        self.assertEqual(mile3.priority, 3)
+
+    def test_milestones_sorts_correctly(self):
+        mile1, mile2, mile3 = self.create_data()
+
+        data = {
+            'milestone_id': mile2.pk,
+            'direction': 'up',
+        }
+        self.client.post('/sort-milestones', data)
+        milestones = GitlabProject.objects.first().gitlab_milestones.all()
+
+        self.assertEqual(milestones[0], mile2)
+        self.assertEqual(milestones[1], mile1)
+        self.assertEqual(milestones[2], mile3)
+
+        data = {
+            'milestone_id': mile1.pk,
+            'direction': 'down',
+        }
+        self.client.post('/sort-milestones', data)
+
+        milestones = GitlabProject.objects.first().gitlab_milestones.all()
+
+        self.assertEqual(milestones[0], mile2)
+        self.assertEqual(milestones[1], mile3)
+        self.assertEqual(milestones[2], mile1)
+
+    def test_only_superuser_can_sort_milestones(self):
+        mile1, mile2, mile3 = self.create_data()
+
+        get_user_model().objects.create_user(username='testuser', password='testpass')
+        self.client.login(username='testuser', password='testpass')
+
+        data = {
+            'milestone_id': mile1.pk,
+            'direction': 'down',
+        }
+        response = self.client.post('/sort-milestones', data)
+
+        self.assertEqual(response.status_code, 403)
