@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load settings_value %}
+
+{% block preload %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <style>
+        .chart {
+            font-family: 'Arial';
+            font-size: 13px;
+            color: #000;
+        }
+
+        .chart > .axis path,
+        .chart > .axis line {
+            fill: none;
+            stroke: #eee;
+            stroke-width: 2;
+            shape-rendering: crispEdges;
+        }
+
+        .chart > .axis .tick line {
+            fill: none;
+            stroke: #999;
+            stroke-width: 2;
+        }
+
+        .chart > path.ideal {
+            stroke: #eee;
+            stroke-width: 5;
+            stroke-linecap: round;
+        }
+
+        .chart > path.actual {
+            stroke: #91E500;
+            stroke-width: 2;
+            stroke-linecap: round;
+            fill: none;
+            /*fill: rgba(0,0,0,0.1);*/
+        }
+
+        .chart > .grid .tick {
+            stroke: #eee;
+            opacity: 0.5;
+        }
+        /* For aesthetics only */
+
+        body {
+            margin: 40px;
+            font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, sans-serif;
+        }
+
+        .intro h1 {
+            font: 200 1.7em Segoe UI, "Segoe UI Light", "DejaVu Sans", "Trebuchet MS", Verdana, sans-serif;
+            font-weight: 200;
+            color: #666;
+        }
+
+        .intro p {
+            max-width: 600px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="bs-docs-section">
+        <div class="row">
+            <h1 class="page-header text-center">{{ project.name }}</h1>
+            <svg id="visualisation" width="1000" height="500" class="chart"></svg>
+        </div>
+    </div>
+    <script>
+        $(function() {
+            initChart();
+        });
+
+        function initChart() {
+            
+            var svg = d3.select("#visualisation");
+            
+            var creationDate = new Date({{ project.creation_date|date:"Y,n-1,j" }});
+            var finishDateAssessment = new Date({{ project.finish_date_assessment|date:"Y,n-1,j" }});
+            var lineDataActual = [
+                {
+                    'x':new Date({{ project.creation_date|date:"Y,n-1,j" }}),
+                    'y':{{ project.issues_number }}
+                },
+                {% for elem in report_list %}
+                {
+                    'x': new Date({{ elem.date|date:"Y,n-1,j" }}),
+                    'y': {{ elem.issues }}
+                },
+                {% endfor %}
+            ];
+            var xDomain = [
+                {% with report_list|first as first %}
+                    new Date({{ first.date|date:"Y,n-1,j" }}),
+                {% endwith %}
+                new Date({{ project.finish_date_assessment|date:"Y,n-1,j" }}),
+            ];
+
+            var width = 1000,
+            height = 500,
+            margins = {
+              top: 80,
+              right: 30,
+              bottom: 80,
+              left: 80
+            };
+
+            xMin = creationDate,
+            xMax = finishDateAssessment,
+            yMin = 0,
+            yMax = d3.max(lineDataActual, function(d) {
+              return d.y;
+            });
+
+            xRange = d3.time.scale().range([margins.left, width - margins.right]).domain(xDomain)
+            
+            yRange = d3.scale.linear().range([height - margins.top, margins.bottom]).domain([
+              yMin, yMax
+            ]),
+            
+            xAxis = d3.svg.axis()
+            .scale(xRange)
+            .ticks(d3.time.days, 1)
+            .tickSubdivide(0)
+
+            yAxis = d3.svg.axis()
+            .scale(yRange)
+            .orient("left")
+            .tickFormat(d3.format("d"))
+            .tickSubdivide(0);
+        
+          function make_x_axis() {
+            return d3.svg.axis()
+              .scale(xRange)
+              .orient("bottom")
+              .tickSubdivide(0)
+          }
+            
+          function make_y_axis() {
+            return d3.svg.axis()
+              .scale(yRange)
+              .orient("left")
+              .tickSubdivide(0)
+          }
+          svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", "translate(0," + (height - margins.top) + ")")
+            .call(make_x_axis()
+              .tickSize((-height) + (margins.top + margins.bottom), 0, 0)
+              .tickFormat("")
+            )
+          svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", "translate(" + (margins.left) + ",0)")
+            .call(make_y_axis()
+              .tickSize((-width) + (margins.right + margins.left), 0, 0)
+              .tickFormat("")
+            )
+
+          svg.append("svg:g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + (height - (margins.bottom)) + ")")
+            .call(xAxis);
+
+          svg.append("svg:g")
+            .attr("class", "y axis")
+            .attr("transform", "translate(" + (margins.left) + ",0)")
+            .call(yAxis);
+
+          var lineFunc = d3.svg.line()
+            .x(function(d) {
+              return xRange(d.x);
+            })
+            .y(function(d) {
+              return yRange(d.y);
+            })
+            .interpolate('basis');
+
+          var lineDataIdeal = [{
+            'x': xMin,
+            'y': yMax
+          }, {
+            'x': xMax,
+            'y': yMin
+          }];
+
+          svg.append("svg:path")
+            .attr("d", lineFunc(lineDataIdeal))
+            .attr("class", "ideal");
+
+          svg.append("svg:path")
+            .attr("d", lineFunc(lineDataActual))
+            .attr("class", "actual");
+
+          svg.append("text")
+            .attr("class", "x label")
+            .attr("text-anchor", "end")
+            .attr("x", width)
+            .attr("y", height - 6)
+            .text("Days");
+
+          svg.append("text")
+            .attr("class", "y label")
+            .attr("text-anchor", "end")
+            .attr("y", 6)
+            .attr("dy", ".75em")
+            .attr("transform", "rotate(-90)")
+            .text("Issues remaining");
+
+        }
+        </script>
+    {% endblock %}
