@@ -58,6 +58,7 @@ class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):
     fields = ['issues_types']
     template_name = 'HuskyJamGuru/project_columns_edit.html'
 
+
 class SortMilestonesView(braces_views.LoginRequiredMixin,
                          braces_views.SuperuserRequiredMixin,
                          View):
