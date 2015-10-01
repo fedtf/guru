@@ -1,4 +1,4 @@
-from django.views.generic import TemplateView, ListView, DetailView, CreateView, View
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, View
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model
@@ -52,6 +52,11 @@ class ProjectDetailView(DetailView):
                                                                             project=self.object)
         return context
 
+
+class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):
+    model = Project
+    fields = ['issues_types']
+    template_name = 'HuskyJamGuru/project_columns_edit.html'
 
 class SortMilestonesView(braces_views.LoginRequiredMixin,
                          braces_views.SuperuserRequiredMixin,

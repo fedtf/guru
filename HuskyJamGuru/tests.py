@@ -5,7 +5,7 @@ from django.core.urlresolvers import resolve
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .views import WorkReportListView, ProjectReportView
+from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone
 
 
@@ -193,3 +193,59 @@ class MilestoneSortTest(TestCase):
         response = self.client.post('/sort-milestones', data)
 
         self.assertEqual(response.status_code, 403)
+
+
+class ProjectColumnsEditTest(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                  email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        new_project = Project.objects.create(name='testproject',
+                                             creation_date=timezone.now(),
+                                             finish_date_assessment=timezone.now())
+        self.project_pk = new_project.pk
+        self.page_url = '/project-columns-edit/{}/'.format(new_project.pk)
+
+    def test_url_resolves_to_work_report_list_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, ProjectColumnsEditView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_redirects_to_login_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, '/login?next={}'.format(self.page_url))
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/project_columns_edit.html')
+
+    def test_columns_saves_correctly(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project_pk)
+
+        self.assertEqual(project.issues_types, 'cool, nice, the best')
+
+    def test_project_returns_correct_issues_types_tuple(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project_pk)
+
+        expected_tuple = (
+            ('cool', 'Cool'),
+            ('nice', 'Nice'),
+            ('the_best', 'The Best'),
+        )
+
+        self.assertEqual(project.issues_types_tuple, expected_tuple)

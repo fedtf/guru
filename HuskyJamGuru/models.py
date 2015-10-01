@@ -4,12 +4,14 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
+from django.core.urlresolvers import reverse
 
 
 class Project(models.Model):
     name = models.CharField(max_length=500, default="")
     creation_date = models.DateField()
     finish_date_assessment = models.DateField()
+    issues_types = models.TextField(default='open, in progress, fixed, verified')
 
     @property
     def issues_number(self):
@@ -32,8 +34,17 @@ class Project(models.Model):
             report_list.append({'date': date, 'issues': issues_number - closed})
         return report_list
 
+    @property
+    def issues_types_tuple(self):
+        external_list = [type.strip().title() for type in self.issues_types.split(',')]
+        internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
+        return tuple(zip(internal_list, external_list))
+
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
 
 
 class UserToProjectAccess(models.Model):

@@ -24,19 +24,19 @@
 
 
     <div class="bs-docs-section">
+        {% if user.is_superuser %}
+            <div class="row">
+                <a href="{% url 'HuskyJamGuru:project-columns-edit' pk=project.pk %}" class="pull-right">
+                    <small>Columns edit</small>
+                </a>
+            </div>
+        {% endif %}
         <div class="row">
-            <div class="col-lg-3">
-                <h2>Open</h2>
+            {% for type_tuple in project.issues_types_tuple %}
+            <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
+                <h2>{{ type_tuple|last }}</h2>
             </div>
-            <div class="col-lg-3">
-                <h2>In Progress</h2>
-            </div>
-            <div class="col-lg-3">
-                <h2>Fixed</h2>
-            </div>
-            <div class="col-lg-3">
-                <h2>Verified</h2>
-            </div>
+            {% endfor %}
         </div>
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
@@ -58,22 +58,12 @@
                         {% endif %}
                         <small class="pull-right"></small></div>
                         <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
-                            <div class="col-lg-3 drop-row">
-                                <div class="col-lg-12 dropable open-row">
+                            {% for type_tuple in project.issues_types_tuple %}
+                            <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%} drop-row">
+                                <div class="col-lg-12 dropable {{ type_tuple|first }}-row">
                                 </div>
                             </div>
-                            <div class="col-lg-3 drop-row">
-                                <div class="col-lg-12 dropable in_progress-row">
-                                </div>
-                            </div>
-                            <div class="col-lg-3 drop-row">
-                                <div class="col-lg-12 dropable fixed-row">
-                                </div>
-                            </div>
-                            <div class="col-lg-3 drop-row">
-                                <div class="col-lg-12 dropable verified-row">
-                                </div>
-                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 {% endfor %}
@@ -123,15 +113,11 @@
                 activeClass: "ui-state-hover",
                 receive: function(event, ui){
                     var newType = 'open';
-                    if($(event.target).hasClass("in_progress-row")){
-                        newType = 'in_progress';
-                    }
-                    if($(event.target).hasClass("fixed-row")){
-                        newType = 'fixed';
-                    }
-                    if($(event.target).hasClass("verified-row")){
-                        newType = 'verified';
-                    }
+                    {% for type_tuple in project.issues_types_tuple %}
+                        if($(event.target).hasClass("{{ type_tuple|first }}-row")){
+                            newType = '{{ type_tuple|first }}';
+                        }
+                    {% endfor %}
                     $(ui.item[0]).attr('issue-pk');
                     updateIssueType($(ui.item[0]).attr('issue-pk'), newType)
                 }
