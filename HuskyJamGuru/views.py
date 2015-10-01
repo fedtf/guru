@@ -1,9 +1,11 @@
-from django.views.generic import TemplateView, ListView, DetailView, CreateView
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, View
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import redirect, render
+
+from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
@@ -51,10 +53,15 @@ class ProjectDetailView(DetailView):
         return context
 
 
-def sort_milestones(request):
-    if not request.user.is_superuser:
-        return HttpResponseForbidden()
-    if request.method == 'POST':
+class SortMilestonesView(braces_views.LoginRequiredMixin,
+                         braces_views.SuperuserRequiredMixin,
+                         View):
+    raise_exception = True
+
+    def get(self, request):
+        return render(reverse_lazy('project-list'))
+
+    def post(self, request, *args, **kwargs):
         milestone_id = request.POST.get('milestone_id')
         direction = request.POST.get('direction')
 
@@ -82,8 +89,6 @@ def sort_milestones(request):
 
         return redirect(reverse_lazy('HuskyJamGuru:project-detail',
                                      kwargs={'pk': milestone.gitlab_project.project.pk}))
-    else:
-        return render(reverse_lazy('project-list'))
 
 
 class ProjectReportView(DetailView):
