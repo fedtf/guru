@@ -31,12 +31,17 @@
                 </a>
             </div>
         {% endif %}
-        <div class="row">
+        <div class="row" id="columns-header">
             {% for type_tuple in project.issues_types_tuple %}
-            <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
-                <h2>{{ type_tuple|last }}</h2>
-            </div>
+                <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
+                    <h2>{{ type_tuple|last }}</h2>
+                </div>
             {% endfor %}
+            {% if show_unassigned %}
+                <div id="unassigned-column" class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
+                    <h2>Unassigned</h2>
+                </div>
+            {% endif %}
         </div>
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
@@ -64,6 +69,12 @@
                                 </div>
                             </div>
                             {% endfor %}
+                            {% if show_unassigned %}
+                                <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%} drop-row">
+                                    <div class="col-lg-12 dropable unassigned-row">
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}
@@ -102,27 +113,33 @@
                 }
             }).done(function( result ) {
                 console.log(result);
-            });
+            })
         };
 
         $(function() {
+            enableSortable(); 
+        });
+
+        function enableSortable() {
             $('.dropable').sortable({
                 connectWith: ".dropable",
                 revert: true,
                 cursor: 'move',
                 activeClass: "ui-state-hover",
                 receive: function(event, ui){
+                    if ($(event.target).hasClass('unassigned-row')) {
+                        return ui.sender.sortable("cancel"); 
+                    }
                     var newType = 'open';
                     {% for type_tuple in project.issues_types_tuple %}
                         if($(event.target).hasClass("{{ type_tuple|first }}-row")){
                             newType = '{{ type_tuple|first }}';
                         }
                     {% endfor %}
-                    $(ui.item[0]).attr('issue-pk');
                     updateIssueType($(ui.item[0]).attr('issue-pk'), newType)
                 }
             });
-        });
+        };
 
         function updateTaskPositions() {
             $.ajax({
@@ -133,6 +150,31 @@
                         issues[i].current_type = 'open';
                     }
                     var targetPlaceForPanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']").find("." + issues[i].current_type.type + "-row");
+                    if (!targetPlaceForPanel.length) {
+                        unassignedColumn = $('#unassigned-column');
+                        if (!unassignedColumn.length) {
+                            $('#columns-header').children().first()
+                                                .clone()
+                                                .attr('id', 'unassigned-column')
+                                                .find('h2')
+                                                .text('Unassigned')
+                                                .end()
+                                                .appendTo($('#columns-header'));
+                            $('.milestone').each(function() {
+                                $(this).children().first()
+                                       .clone()
+                                       .find('.dropable')
+                                       .removeClass('open-row')
+                                       .addClass('unassigned-row')
+                                       .children().remove().end()
+                                       .end()
+                                       .appendTo(this)
+                            });
+                            enableSortable();
+                        }
+                        targetPlaceForPanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']").find('.unassigned-row');
+                        var existPanel = $("[issue-pk=" + issues[i].pk + "]");
+                    }
                     var existPanel = $("[issue-pk=" + issues[i].pk + "]");
                     var panel = null;
                     if(targetPlaceForPanel.has(existPanel).length){

@@ -14,18 +14,19 @@ class Project(models.Model):
     issues_types = models.TextField(default='open, in progress, fixed, verified')
 
     @property
-    def issues_number(self):
-        issues_number = 0
+    def issues(self):
+        issues = GitLabIssue.objects.none()
         gitlab_projects = self.gitlab_projects.all()
         for gitlab_project in gitlab_projects:
-            issues_number += gitlab_project.issues.count()
-        return issues_number
+            # will not work for sliced querysets
+            issues = issues | gitlab_project.issues.all()
+        return issues
 
     @property
     def report_list(self):
         report_list = []
         closed = 0
-        issues_number = self.issues_number
+        issues_number = self.issues.count()
         end_date = min(timezone.now().date(), self.finish_date_assessment)
         for i in range((end_date - self.creation_date).days + 1):
             date = self.creation_date + datetime.timedelta(days=i)

@@ -50,6 +50,15 @@ class ProjectDetailView(DetailView):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
         context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
                                                                             project=self.object)
+
+        show_unassigned = False
+        type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
+        for issue in self.object.issues:
+            if issue.current_type.type not in type_list:
+                show_unassigned = True
+                break
+        context['show_unassigned'] = show_unassigned
+
         return context
 
 
