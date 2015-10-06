@@ -2,7 +2,6 @@ from django.views.generic import TemplateView, ListView, DetailView, CreateView,
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import redirect, render
 
 from braces import views as braces_views
@@ -10,13 +9,6 @@ from braces import views as braces_views
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone
-
-
-class AdminRequiredMixin(object):
-    @classmethod
-    def as_view(cls, **initkwargs):
-        view = super(AdminRequiredMixin, cls).as_view(**initkwargs)
-        return user_passes_test(lambda u: u.is_superuser)(view)
 
 
 class Login(TemplateView):
@@ -138,10 +130,12 @@ class IssueTimeAssessmentCreate(CreateView):
         return form
 
 
-class WorkReportListView(AdminRequiredMixin, ListView):
+class WorkReportListView(braces_views.LoginRequiredMixin,
+                         braces_views.SuperuserRequiredMixin,
+                         braces_views.PrefetchRelatedMixin,
+                         braces_views.SelectRelatedMixin,
+                         ListView):
+    model = get_user_model()
     template_name = 'HuskyJamGuru/work_report_list.html'
-    prefetch_string = '{}__{}__{}'.format('issues_time_spent_records',
-                                          'gitlab_issue',
-                                          'gitlab_milestone')
-    queryset = get_user_model().objects.all().prefetch_related(prefetch_string)\
-                                             .select_related('gitlabauthorisation__name')
+    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
+    select_related = ['gitlabauthorisation__name']
