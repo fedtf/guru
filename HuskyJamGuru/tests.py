@@ -163,6 +163,7 @@ class MilestoneSortTest(TestCase):
             'milestone_id': mile2.pk,
             'direction': 'up',
         }
+
         self.client.post('/sort-milestones', data)
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
@@ -181,6 +182,25 @@ class MilestoneSortTest(TestCase):
         self.assertEqual(milestones[0], mile2)
         self.assertEqual(milestones[1], mile3)
         self.assertEqual(milestones[2], mile1)
+
+    def test_ajax_sorting_works(self):
+        mile1, mile2, mile3 = create_data()
+
+        data = {
+            'milestone_id': mile2.pk,
+            'direction': 'up',
+        }
+
+        response = self.client.post('/sort-milestones', data,
+                                    HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 200)
+
+        milestones = GitlabProject.objects.first().gitlab_milestones.all()
+
+        self.assertEqual(milestones[0], mile2)
+        self.assertEqual(milestones[1], mile1)
+        self.assertEqual(milestones[2], mile3)
 
     def test_only_superuser_can_sort_milestones(self):
         mile1, mile2, mile3 = create_data()

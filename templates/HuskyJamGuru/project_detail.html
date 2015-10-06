@@ -22,7 +22,6 @@
         </div>
     </div>
 
-
     <div class="bs-docs-section">
         {% if user.is_superuser %}
             <div class="row">
@@ -51,15 +50,13 @@
                         class="report-list pull-right">Project report</a>
                 {% endif %}<br><br>
                 {% for milestone in gitlab_project.gitlab_opened_milestones %}
-                    <div class="panel panel-default">
-                        <div class="panel-heading"><a target="_blank" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a> 
+                    <div id="{{ milestone.pk }}" class="panel panel-default milestone-panel">
+                        <div class="panel-heading"><a target="_blank" class="milestone-link" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a>
                         {% if user.is_superuser %}
-                            {% if milestone.priority != 1 %}
-                                <span id="{{ milestone.pk }}" class="milestone_up glyphicon glyphicon-arrow-up"></span>
-                            {% endif %}
-                            {% if milestone.priority != gitlab_project.gitlab_milestones.count %}
-                                <span id="{{ milestone.pk }}" class="milestone_down glyphicon glyphicon-arrow-down"></span>
-                            {% endif %}
+                            <span {% if milestone.priority == 1 %}style="display:none"{% endif %} 
+                                class="milestone_up glyphicon glyphicon-arrow-up"></span>
+                            <span {% if milestone.priority == gitlab_project.gitlab_milestones.count %}style="display:none"{% endif %}
+                                class="milestone_down glyphicon glyphicon-arrow-down"></span>
                         {% endif %}
                         <small class="pull-right"></small></div>
                         <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
@@ -90,17 +87,65 @@
     <script>
         $(document).ready(function() {
             updateTaskPositions();
-            $('.milestone_up').on('click', function(e) {sortMilestiones('up', e.target)})
-            $('.milestone_down').on('click', function(e) {sortMilestiones('down', e.target)})
+            enableSortable(); 
+            $('.milestone_up').on('click', function(e) {sortMilestiones('up', $(e.target).parents('.milestone-panel'))});
+            $('.milestone_down').on('click', function(e) {sortMilestiones('down', $(e.target).parents('.milestone-panel'))});
         });
 
-        function sortMilestiones(direction, elem) {
-            $('#milestone_sort')
-                    .find('#milestone_id').val($(elem).attr('id'))
-                    .end()
-                    .find('#direction').val(direction)
-                    .end()
-                    .submit();
+        function sortMilestiones(direction, milestone) {
+            $.ajax({
+                url: "{% url 'HuskyJamGuru:sort-milestones' %}",
+                type: "POST",
+                data:{
+                    milestone_id: $(milestone).attr('id'),
+                    direction: direction,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(a, b) {
+                    if (direction == 'up') {
+                        moveMilestoneUp(milestone);
+                    } else {
+                        moveMilestoneDown(milestone); 
+                    }
+                }
+            }); 
+        };
+
+        function moveMilestoneUp(elem) {
+            if (elem.prevAll('.milestone-panel').length) {
+                elem.after(elem.prev());
+                if (elem.nextAll('.milestone-panel').length == 1) {
+                    addArrow(elem, 'down');
+                    removeArrow(elem.next(), 'down');
+                }
+                if (!elem.prevAll('.milestone-panel').length) {
+                    removeArrow(elem, 'up');
+                    addArrow(elem.next(), 'up');
+                }
+            }
+        }
+
+        function moveMilestoneDown(elem) {
+            if (elem.nextAll('.milestone-panel').length) {
+                elem.before(elem.next());
+                if (elem.prevAll('.milestone-panel').length == 1) {
+                    addArrow(elem, 'up');
+                    removeArrow(elem.prev(), 'up');
+                }
+                if (!elem.nextAll('.milestone-panel').length) {
+                    removeArrow(elem, 'down');
+                    addArrow(elem.prev(), 'down');
+                }
+
+            }
+        }
+
+        function removeArrow(elem, direction) {
+            elem.find('.milestone_' + direction).hide();
+        } 
+
+        function addArrow(elem, direction) {
+            elem.find('.milestone_' + direction).show(); 
         }
 
         var updateIssueType = function(issuePk, newType){
@@ -115,10 +160,6 @@
                 console.log(result);
             })
         };
-
-        $(function() {
-            enableSortable(); 
-        });
 
         function enableSortable() {
             $('.dropable').sortable({

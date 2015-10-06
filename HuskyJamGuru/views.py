@@ -102,6 +102,9 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
                 milestone.save()
                 prev_milestone.save()
 
+        if request.is_ajax():
+            return HttpResponse()
+
         return redirect(reverse_lazy('HuskyJamGuru:project-detail',
                                      kwargs={'pk': milestone.gitlab_project.project.pk}))
 
