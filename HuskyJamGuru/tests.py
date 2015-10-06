@@ -316,13 +316,7 @@ class TestLoginAsGuruUser(TestCase):
     def test_page_responds_with_200(self):
         response = self.client.get('/login-as-guru/')
         self.assertEqual(response.status_code, 200)
-    """
-    def test_page_redirects_to_login_if_not_superuser(self):
-        get_user_model().objects.create_user(username='notsuper', password='testpass')
-        self.client.login(username='notsuper', password='testpass')
-        response = self.client.get('/work-report-list/')
-        self.assertRedirects(response, '/login?next=/work-report-list/')
-    """
+
     def test_page_uses_correct_template(self):
         response = self.client.get('/login-as-guru/')
         self.assertTemplateUsed(response, 'HuskyJamGuru/login_as_guru.html')
@@ -339,3 +333,12 @@ class TestLoginAsGuruUser(TestCase):
 
         response = self.client.post('/login-as-guru/', data, follow=True)
         self.assertEqual(response.context['user'].is_authenticated(), True)
+
+    def test_page_redirects_to_project_list_after_auth(self):
+        data = {
+            'username': 'test',
+            'password': 'testpass'
+        }
+
+        response = self.client.post('/login-as-guru/', data, follow=True)
+        self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
