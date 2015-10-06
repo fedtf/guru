@@ -33,12 +33,14 @@
         {% endif %}
         <div class="row" id="columns-header">
             {% for type_tuple in project.issues_types_tuple %}
-                <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
+                <div class="issue-type-column {% if show_unassigned %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
+                            {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %}">
                     <h2>{{ type_tuple|last }}</h2>
                 </div>
             {% endfor %}
             {% if show_unassigned %}
-                <div id="unassigned-column" class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%}">
+                <div id="unassigned-column" class="issue-type-column {% if show_unassigned %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
+                            {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %}">
                     <h2>Unassigned</h2>
                 </div>
             {% endif %}
@@ -64,13 +66,14 @@
                         <small class="pull-right"></small></div>
                         <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
                             {% for type_tuple in project.issues_types_tuple %}
-                            <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%} drop-row">
+                            <div class="{% if show_unassigned %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
+                                {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %} drop-row">
                                 <div class="col-lg-12 dropable {{ type_tuple|first }}-row">
                                 </div>
                             </div>
                             {% endfor %}
                             {% if show_unassigned %}
-                                <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length 1%} drop-row">
+                                <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %} drop-row">
                                     <div class="col-lg-12 dropable unassigned-row">
                                     </div>
                                 </div>
@@ -153,6 +156,9 @@
                     if (!targetPlaceForPanel.length) {
                         unassignedColumn = $('#unassigned-column');
                         if (!unassignedColumn.length) {
+                            issueTypeColumns = $('.issue-type-column');
+                            var oldBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
+
                             $('#columns-header').children().first()
                                                 .clone()
                                                 .attr('id', 'unassigned-column')
@@ -170,6 +176,13 @@
                                        .end()
                                        .appendTo(this)
                             });
+
+                            issueTypeColumns = $('.issue-type-column')
+                            var newBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
+                            issueTypeColumns.removeClass('col-lg-' + oldBootstrapColumnNumber)
+                                            .addClass('col-lg-' + newBootstrapColumnNumber);
+                            $('.drop-row').removeClass('col-lg-' + oldBootstrapColumnNumber)
+                                            .addClass('col-lg-' + newBootstrapColumnNumber);
                             enableSortable();
                         }
                         targetPlaceForPanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']").find('.unassigned-row');
