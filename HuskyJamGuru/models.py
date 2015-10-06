@@ -3,10 +3,34 @@ import datetime
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.utils import timezone
 
 
 class Project(models.Model):
     name = models.CharField(max_length=500, default="")
+    creation_date = models.DateField()
+    finish_date_assessment = models.DateField()
+
+    @property
+    def issues_number(self):
+        issues_number = 0
+        gitlab_projects = self.gitlab_projects.all()
+        for gitlab_project in gitlab_projects:
+            issues_number += gitlab_project.issues.count()
+        return issues_number
+
+    @property
+    def report_list(self):
+        report_list = []
+        closed = 0
+        issues_number = self.issues_number
+        end_date = min(timezone.now().date(), self.finish_date_assessment)
+        for i in range((end_date - self.creation_date).days + 1):
+            date = self.creation_date + datetime.timedelta(days=i)
+            closed += self.issues_type_updates.filter(time__contains=date,
+                                                      type='closed').count()
+            report_list.append({'date': date, 'issues': issues_number - closed})
+        return report_list
 
     def __str__(self):
         return self.name
@@ -19,9 +43,10 @@ class UserToProjectAccess(models.Model):
     TYPE_CHOICES = (
         ('administrator', 'Administrator'),
         ('developer', 'Developer'),
+        ('manager', 'Manager'),
     )
 
-    type = models.CharField(max_length=100)
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
 
     @staticmethod
     def get_projects_queryset_user_has_access_to(user, access='developer'):
@@ -62,9 +87,22 @@ class GitLabMilestone(models.Model):
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
+    priority = models.IntegerField(editable=False)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            last_milestone = self.gitlab_project.gitlab_milestones.last()
+            if last_milestone is not None:
+                self.priority = last_milestone.priority + 1
+            else:
+                self.priority = 1
+        super(GitLabMilestone, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        ordering = ['priority']
 
 
 class GitLabIssue(models.Model):
@@ -92,6 +130,17 @@ class GitLabIssue(models.Model):
                 type='open'
             )
             return c_type
+
+    @property
+    def is_closed(self):
+        return self.current_type.type == 'closed'
+
+    @property
+    def closed_at(self):
+        if self.is_closed:
+            return self.current_type.time.date()
+        else:
+            return None
 
     @property
     def spent_minutes(self):
@@ -143,11 +192,12 @@ class IssueTimeSpentRecord(models.Model):
 
 
 class IssueTypeUpdate(models.Model):
-    gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_update')
+    gitlab_issue = models.ForeignKey(GitLabIssue, related_name='type_updates')
     type = models.CharField(max_length=100)
     author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)
     is_current = models.BooleanField(default=True)
+    project = models.ForeignKey(Project, related_name='issues_type_updates')
 
     def save(self, *args, **kwargs):
         if not self.pk:
