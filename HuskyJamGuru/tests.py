@@ -5,8 +5,33 @@ from django.core.urlresolvers import resolve
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .views import WorkReportListView, ProjectReportView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone
+from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
+    UserToProjectAccess
+
+
+def create_data():
+    project = Project(name='testproject', creation_date=timezone.now(),
+                      finish_date_assessment=timezone.now())
+    project.save()
+
+    gitlab_project = GitlabProject(name='gitlabtestproject', gitlab_id=4,
+                                   project=project)
+    gitlab_project.save()
+
+    mile1 = GitLabMilestone(name='mile1', gitlab_project=gitlab_project,
+                            gitlab_milestone_id=1)
+    mile1.save()
+
+    mile2 = GitLabMilestone(name='mile2', gitlab_project=gitlab_project,
+                            gitlab_milestone_id=2)
+    mile2.save()
+
+    mile3 = GitLabMilestone(name='mile3', gitlab_project=gitlab_project,
+                            gitlab_milestone_id=3)
+    mile3.save()
+
+    return (mile1, mile2, mile3)
 
 
 class WorkReportListTest(TestCase):
@@ -124,43 +149,21 @@ class MilestoneSortTest(TestCase):
                                                   email='testadmin@example.com')
         self.client.login(username='test', password='testpass')
 
-    def create_data(self):
-        project = Project(name='testproject', creation_date=timezone.now(),
-                          finish_date_assessment=timezone.now())
-        project.save()
-
-        gitlab_project = GitlabProject(name='gitlabtestproject', gitlab_id=4,
-                                       project=project)
-        gitlab_project.save()
-
-        mile1 = GitLabMilestone(name='mile1', gitlab_project=gitlab_project,
-                                gitlab_milestone_id=1)
-        mile1.save()
-
-        mile2 = GitLabMilestone(name='mile2', gitlab_project=gitlab_project,
-                                gitlab_milestone_id=2)
-        mile2.save()
-
-        mile3 = GitLabMilestone(name='mile3', gitlab_project=gitlab_project,
-                                gitlab_milestone_id=3)
-        mile3.save()
-
-        return (mile1, mile2, mile3)
-
     def test_new_milestone_created_with_right_priority(self):
-        mile1, mile2, mile3 = self.create_data()
+        mile1, mile2, mile3 = create_data()
 
         self.assertEqual(mile1.priority, 1)
         self.assertEqual(mile2.priority, 2)
         self.assertEqual(mile3.priority, 3)
 
     def test_milestones_sorts_correctly(self):
-        mile1, mile2, mile3 = self.create_data()
+        mile1, mile2, mile3 = create_data()
 
         data = {
             'milestone_id': mile2.pk,
             'direction': 'up',
         }
+
         self.client.post('/sort-milestones', data)
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
@@ -180,8 +183,27 @@ class MilestoneSortTest(TestCase):
         self.assertEqual(milestones[1], mile3)
         self.assertEqual(milestones[2], mile1)
 
+    def test_ajax_sorting_works(self):
+        mile1, mile2, mile3 = create_data()
+
+        data = {
+            'milestone_id': mile2.pk,
+            'direction': 'up',
+        }
+
+        response = self.client.post('/sort-milestones', data,
+                                    HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 200)
+
+        milestones = GitlabProject.objects.first().gitlab_milestones.all()
+
+        self.assertEqual(milestones[0], mile2)
+        self.assertEqual(milestones[1], mile1)
+        self.assertEqual(milestones[2], mile3)
+
     def test_only_superuser_can_sort_milestones(self):
-        mile1, mile2, mile3 = self.create_data()
+        mile1, mile2, mile3 = create_data()
 
         get_user_model().objects.create_user(username='testuser', password='testpass')
         self.client.login(username='testuser', password='testpass')
@@ -193,3 +215,85 @@ class MilestoneSortTest(TestCase):
         response = self.client.post('/sort-milestones', data)
 
         self.assertEqual(response.status_code, 403)
+
+
+class ProjectColumnsEditTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+        self.project = new_project
+        self.page_url = '/project-columns-edit/{}/'.format(new_project.pk)
+
+    def test_url_resolves_to_work_report_list_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, ProjectColumnsEditView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_redirects_to_login_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, '/login?next={}'.format(self.page_url))
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/project_columns_edit.html')
+
+    def test_columns_saves_correctly(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project.pk)
+
+        self.assertEqual(project.issues_types, 'cool, nice, the best')
+
+    def test_project_returns_correct_issues_types_tuple(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project.pk)
+
+        expected_tuple = (
+            ('cool', 'Cool'),
+            ('nice', 'Nice'),
+            ('the_best', 'The Best'),
+        )
+
+        self.assertEqual(project.issues_types_tuple, expected_tuple)
+
+    def test_detail_project_view_shows_unassigned_column_when_necessary(self):
+        UserToProjectAccess.objects.create(user=self.user, project=self.project, type='developer')
+
+        GitLabIssue.objects.create(gitlab_issue_id=0,
+                                   gitlab_project=self.project.gitlab_projects.first(),
+                                   gitlab_issue_iid=0)
+        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=1)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue1,
+                                       project=self.project,
+                                       type='in_progress')
+
+        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
+        self.assertEqual(response.context['show_unassigned'], False)
+
+        new_issue2 = GitLabIssue.objects.create(gitlab_issue_id=2,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=2)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue2,
+                                       project=self.project,
+                                       type='unknown')
+
+        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
+        self.assertEqual(response.context['show_unassigned'], True)
