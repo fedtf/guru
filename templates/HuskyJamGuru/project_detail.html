@@ -39,8 +39,7 @@
                 </div>
             {% endfor %}
             {% if show_unassigned %}
-                <div id="unassigned-column" class="issue-type-column {% if show_unassigned %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
-                            {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %}">
+                <div id="unassigned-column" class="issue-type-column col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}">
                     <h2>Unassigned</h2>
                 </div>
             {% endif %}
