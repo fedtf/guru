@@ -1,9 +1,12 @@
-from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, View
+from django.conf import settings
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
-from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import get_user_model, login
+from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
+from django.utils.decorators import method_decorator
+from django.views.decorators.debug import sensitive_post_parameters
 
 from braces import views as braces_views
 
@@ -12,15 +15,27 @@ from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIss
     GitLabMilestone
 
 
-class AdminRequiredMixin(object):
-    @classmethod
-    def as_view(cls, **initkwargs):
-        view = super(AdminRequiredMixin, cls).as_view(**initkwargs)
-        return user_passes_test(lambda u: u.is_superuser)(view)
-
-
 class Login(TemplateView):
     template_name = "HuskyJamGuru/login.html"
+
+
+class LoginAsGuruUserView(FormView):
+    form_class = AuthenticationForm
+    template_name = "HuskyJamGuru/login_as_guru.html"
+
+    def form_valid(self, form):
+        login(self.request, form.get_user())
+        if self.request.session.test_cookie_worked():
+            self.request.session.delete_test_cookie()
+        return redirect(settings.LOGIN_REDIRECT_URL)
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+    @method_decorator(sensitive_post_parameters('password'))
+    def dispatch(self, request, *args, **kwargs):
+        request.session.set_test_cookie()
+        return super(LoginAsGuruUserView, self).dispatch(request, *args, **kwargs)
 
 
 class ProjectListView(ListView):
@@ -156,10 +171,12 @@ class IssueTimeAssessmentCreate(CreateView):
         return form
 
 
-class WorkReportListView(AdminRequiredMixin, ListView):
+class WorkReportListView(braces_views.LoginRequiredMixin,
+                         braces_views.SuperuserRequiredMixin,
+                         braces_views.PrefetchRelatedMixin,
+                         braces_views.SelectRelatedMixin,
+                         ListView):
+    model = get_user_model()
     template_name = 'HuskyJamGuru/work_report_list.html'
-    prefetch_string = '{}__{}__{}'.format('issues_time_spent_records',
-                                          'gitlab_issue',
-                                          'gitlab_milestone')
-    queryset = get_user_model().objects.all().prefetch_related(prefetch_string)\
-                                             .select_related('gitlabauthorisation__name')
+    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
+    select_related = ['gitlabauthorisation__name']
