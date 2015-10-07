@@ -169,5 +169,6 @@ class WorkReportListView(braces_views.LoginRequiredMixin,
                          ListView):
     model = get_user_model()
     template_name = 'HuskyJamGuru/work_report_list.html'
-    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
+    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone',
+                        'to_project_accesses']
     select_related = ['gitlabauthorisation__name']

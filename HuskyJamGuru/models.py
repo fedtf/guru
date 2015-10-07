@@ -75,6 +75,19 @@ class GitlabAuthorisation(models.Model):
     name = models.CharField(max_length=500, unique=False, blank=True)
     username = models.CharField(max_length=500, unique=False, blank=True)
 
+    @property
+    def user_projects_issues_statistics(self):
+        user_projects_issues_statistics = {'open': 0, 'unassigned': 0}
+
+        for project_access in self.user.to_project_accesses.all():
+            for issue in project_access.project.issues.all():
+                if issue.current_type.type == 'open':
+                    user_projects_issues_statistics['open'] += 1
+                    if not issue.assignee:
+                        user_projects_issues_statistics['unassigned'] += 1
+
+        return user_projects_issues_statistics
+
 
 class GitlabModelExtension(models.Model):
     gitlab_id = models.IntegerField(unique=True, blank=None)
@@ -209,7 +222,7 @@ class IssueTypeUpdate(models.Model):
     author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)
     is_current = models.BooleanField(default=True)
-    project = models.ForeignKey(Project, related_name='issues_type_updates')
+    project = models.ForeignKey(Project, editable=False, related_name='issues_type_updates')
 
     def save(self, *args, **kwargs):
         if not self.pk:
@@ -224,4 +237,6 @@ class IssueTypeUpdate(models.Model):
             for previous in IssueTypeUpdate.objects.filter(gitlab_issue=self.gitlab_issue, is_current=True):
                 previous.is_current = False
                 previous.save()
+
+        self.project = self.gitlab_issue.gitlab_project.project
         super(IssueTypeUpdate, self).save(*args, **kwargs)
