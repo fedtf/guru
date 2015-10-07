@@ -19,7 +19,7 @@ class Login(TemplateView):
 
 class LoginAsGuruUserView(FormView):
     form_class = AuthenticationForm
-    template_name = "HuskyJamGuru/login_as_guru.html"
+    template_name = "admin/login.html"
 
     def form_valid(self, form):
         login(self.request, form.get_user())

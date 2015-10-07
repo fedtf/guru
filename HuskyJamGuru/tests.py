@@ -319,7 +319,7 @@ class TestLoginAsGuruUser(TestCase):
 
     def test_page_uses_correct_template(self):
         response = self.client.get('/login-as-guru/')
-        self.assertTemplateUsed(response, 'HuskyJamGuru/login_as_guru.html')
+        self.assertTemplateUsed(response, 'admin/login.html')
 
     def test_page_contains_auth_form(self):
         response = self.client.get('/login-as-guru/')
