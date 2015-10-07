@@ -7,8 +7,13 @@
             {% for user in user_list %}
             <div class="col-lg-3">
                 <h2>{{ user.gitlabauthorisation.name }}</h2>
-                <small>total opened issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.open }}</small><br/>
-                <small>total opened and unassigned issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.unassigned }}</small>
+                <small>Total opened issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.open }}</small><br/>
+                <small>Total opened and unassigned issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.unassigned }}</small><br>
+                {% with current_issue=user.gitlabauthorisation.current_issue  %}
+                    {% if current_issue %}
+                        <small>Current issue: {{ current_issue.name }}; {{ current_issue.spent_minutes }} minutes spent
+                    {% endif %}
+                {% endwith %}
                 <div class="panel panel-default">
                     {% for time_record in user.issues_time_spent_records.all %}
                     <div class="panel panel-success">

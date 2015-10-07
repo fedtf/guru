@@ -85,8 +85,15 @@ class GitlabAuthorisation(models.Model):
                     user_projects_issues_statistics['open'] += 1
                     if not issue.assignee:
                         user_projects_issues_statistics['unassigned'] += 1
-
         return user_projects_issues_statistics
+
+    @property
+    def current_issue(self):
+        all_user_issues = GitLabIssue.objects.filter(assignee=self).all()
+        for issue in all_user_issues:
+            if issue.current_type.type == 'in_progress':
+                return issue
+        return None
 
 
 class GitlabModelExtension(models.Model):

@@ -65,7 +65,7 @@ class WorkReportListTest(TestCase):
         response = self.client.get('/work-report-list/')
         self.assertEqual(response.context['user_list'].count(), 3)
 
-    def test_correction_of_user_projects_issues_statistics(self):
+    def test_user_projects_issues_statistics(self):
         gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=1, token='asdsgreeg')
 
         mile, _, _ = create_data()
@@ -100,6 +100,26 @@ class WorkReportListTest(TestCase):
 
         IssueTypeUpdate.objects.create(gitlab_issue=issue4, type="verified", project=new_project)
         self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 4, 'unassigned': 3})
+
+    def test_user_current_issue(self):
+        gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=1, token='asdsgreeg')
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+
+        UserToProjectAccess.objects.create(user=self.user, project=new_project, type='developer')
+
+        issue1 = GitLabIssue.objects.create(gitlab_issue_id=1, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=1)
+        GitLabIssue.objects.create(gitlab_issue_id=2, gitlab_project=mile.gitlab_project,
+                                   gitlab_issue_iid=2)
+
+        issue1.assignee = gitlab_auth
+        issue1.save()
+
+        self.assertEqual(gitlab_auth.current_issue, None)
+
+        IssueTypeUpdate.objects.create(gitlab_issue=issue1, type="in_progress")
+        self.assertEqual(gitlab_auth.current_issue, issue1)
 
 
 class ProjectReportTest(TestCase):
