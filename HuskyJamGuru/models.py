@@ -1,5 +1,6 @@
 import datetime
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -66,6 +67,13 @@ class UserToProjectAccess(models.Model):
             return Project.objects.filter(user_project_accesses__in=UserToProjectAccess.objects.filter(user=user).all())
         else:
             return None
+
+    def __str__(self):
+        try:
+            user_name = self.user.gitlabauthorisation.name + "(" + self.user.gitlabauthorisation.username + ")"
+        except ObjectDoesNotExist:
+            user_name = self.user.username
+        return self.get_type_display() + ": " + user_name + " in " + self.project.name
 
 
 class GitlabAuthorisation(models.Model):

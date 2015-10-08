@@ -1,5 +1,3 @@
-import logging
-
 from rest_framework import viewsets
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
