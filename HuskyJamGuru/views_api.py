@@ -1,14 +1,10 @@
 import logging
 
 from rest_framework import viewsets
-from rest_framework import status
-from rest_framework.response import Response
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
 from Project.gitlab import reassign_issue
-
-logger = logging.getLogger(__name__)
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
