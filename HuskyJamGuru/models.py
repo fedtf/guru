@@ -77,6 +77,9 @@ class GitlabAuthorisation(models.Model):
 
     @property
     def user_projects_issues_statistics(self):
+        # Returns the dictionary with the numbers of
+        # all open and open and unassigned issues
+        # in all projects that user has access to.
         user_projects_issues_statistics = {'open': 0, 'unassigned': 0}
 
         for project_access in self.user.to_project_accesses.all():
