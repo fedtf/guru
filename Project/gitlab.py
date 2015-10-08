@@ -16,6 +16,7 @@ def get_gitlab(request=None, redirect_uri=''):
     if request is None:
         gitlab = OAuth2Session(client_id, redirect_uri=redirect_uri)
     else:
+        print(request.user)
         gitlab = OAuth2Session(client_id, token=json.loads(request.user.gitlabauthorisation.token.replace("'", '"')))
     return gitlab
 

@@ -1,22 +1,32 @@
-from django.views.generic import TemplateView, ListView, DetailView, CreateView
+from django.conf import settings
+from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
-from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import get_user_model, login
+from django.contrib.auth.forms import AuthenticationForm
+from django.shortcuts import redirect, render
+
+from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
-from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue
-
-
-class AdminRequiredMixin(object):
-    @classmethod
-    def as_view(cls, **initkwargs):
-        view = super(AdminRequiredMixin, cls).as_view(**initkwargs)
-        return user_passes_test(lambda u: u.is_superuser)(view)
+from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
+    GitLabMilestone
 
 
 class Login(TemplateView):
     template_name = "HuskyJamGuru/login.html"
+
+
+class LoginAsGuruUserView(FormView):
+    form_class = AuthenticationForm
+    template_name = "admin/login.html"
+
+    def form_valid(self, form):
+        login(self.request, form.get_user())
+        return redirect(settings.LOGIN_REDIRECT_URL)
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
 
 
 class ProjectListView(ListView):
@@ -46,7 +56,63 @@ class ProjectDetailView(DetailView):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
         context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
                                                                             project=self.object)
+
+        show_unassigned = False
+        type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
+        for issue in self.object.issues:
+            if issue.current_type.type not in type_list:
+                show_unassigned = True
+                break
+        context['show_unassigned'] = show_unassigned
+
         return context
+
+
+class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):
+    model = Project
+    fields = ['issues_types']
+    template_name = 'HuskyJamGuru/project_columns_edit.html'
+
+
+class SortMilestonesView(braces_views.LoginRequiredMixin,
+                         braces_views.SuperuserRequiredMixin,
+                         View):
+    raise_exception = True
+
+    def get(self, request):
+        return render(reverse_lazy('project-list'))
+
+    def post(self, request, *args, **kwargs):
+        milestone_id = request.POST.get('milestone_id')
+        direction = request.POST.get('direction')
+
+        milestone = GitLabMilestone.objects.get(pk=milestone_id)
+        milestone_priority = milestone.priority
+
+        if direction == 'up':
+            next_milestone = milestone.gitlab_project.gitlab_milestones\
+                .filter(priority__lt=milestone_priority).last()
+            if next_milestone is not None:
+                milestone.priority = next_milestone.priority
+                next_milestone.priority = milestone_priority
+
+                milestone.save()
+                next_milestone.save()
+        elif direction == 'down':
+            prev_milestone = milestone.gitlab_project.gitlab_milestones\
+                .filter(priority__gt=milestone_priority).first()
+            if prev_milestone is not None:
+                milestone.priority = prev_milestone.priority
+                prev_milestone.priority = milestone_priority
+
+                milestone.save()
+                prev_milestone.save()
+
+        if request.is_ajax():
+            return HttpResponse()
+
+        return redirect(reverse_lazy('HuskyJamGuru:project-detail',
+                                     kwargs={'pk': milestone.gitlab_project.project.pk}))
 
 
 class ProjectReportView(DetailView):
@@ -96,10 +162,19 @@ class IssueTimeAssessmentCreate(CreateView):
         return form
 
 
-class WorkReportListView(AdminRequiredMixin, ListView):
+class WorkReportListView(braces_views.LoginRequiredMixin,
+                         braces_views.SuperuserRequiredMixin,
+                         braces_views.PrefetchRelatedMixin,
+                         braces_views.SelectRelatedMixin,
+                         ListView):
+    model = get_user_model()
     template_name = 'HuskyJamGuru/work_report_list.html'
-    prefetch_string = '{}__{}__{}'.format('issues_time_spent_records',
-                                          'gitlab_issue',
-                                          'gitlab_milestone')
-    queryset = get_user_model().objects.all().prefetch_related(prefetch_string)\
-                                             .select_related('gitlabauthorisation__name')
+    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone',
+                        'to_project_accesses']
+    select_related = ['gitlabauthorisation__name']
+
+    def get_queryset(self):
+        queryset = super(WorkReportListView, self).get_queryset()
+        for user in queryset:
+            user.time_spent_records = user.issues_time_spent_records.all()[:6]
+        return queryset
