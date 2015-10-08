@@ -1,11 +1,12 @@
 import datetime
 
 from django.test import TestCase
-from django.core.urlresolvers import resolve
+from django.core.urlresolvers import resolve, reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.contrib.auth.forms import AuthenticationForm
 
-from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView
+from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess
 
@@ -55,7 +56,7 @@ class WorkReportListTest(TestCase):
         self.assertRedirects(response, '/login?next=/work-report-list/')
 
     def test_page_uses_correct_template(self):
-        response = self.client.get('/work-report-list/', follow=True)
+        response = self.client.get('/work-report-list/')
         self.assertTemplateUsed(response, 'HuskyJamGuru/work_report_list.html')
 
     def test_work_report_list_contains_all_users(self):
@@ -297,3 +298,47 @@ class ProjectColumnsEditTest(TestCase):
 
         response = self.client.get('/project-detail/{}/'.format(self.project.pk))
         self.assertEqual(response.context['show_unassigned'], True)
+
+
+class TestLoginAsGuruUser(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                  email='testadmin@example.com')
+
+    def test_login_page_contains_link_to_login_as_guru(self):
+        response = self.client.get(reverse('HuskyJamGuru:login'))
+        self.assertContains(response, '/login-as-guru/')
+
+    def test_url_resolves_to_work_report_list_view(self):
+        found = resolve('/login-as-guru/')
+        self.assertEqual(found.func.__name__, LoginAsGuruUserView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get('/login-as-guru/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get('/login-as-guru/')
+        self.assertTemplateUsed(response, 'admin/login.html')
+
+    def test_page_contains_auth_form(self):
+        response = self.client.get('/login-as-guru/')
+        self.assertIsInstance(response.context['form'], AuthenticationForm)
+
+    def test_page_authenticates(self):
+        data = {
+            'username': 'test',
+            'password': 'testpass'
+        }
+
+        response = self.client.post('/login-as-guru/', data, follow=True)
+        self.assertEqual(response.context['user'].is_authenticated(), True)
+
+    def test_page_redirects_to_project_list_after_auth(self):
+        data = {
+            'username': 'test',
+            'password': 'testpass'
+        }
+
+        response = self.client.post('/login-as-guru/', data, follow=True)
+        self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
