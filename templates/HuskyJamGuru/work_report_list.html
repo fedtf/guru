@@ -15,7 +15,7 @@
                     {% endif %}
                 {% endwith %}
                 <div class="panel panel-default">
-                    {% for time_record in user.issues_time_spent_records.all %}
+                    {% for time_record in user.time_spent_records %}
                     <div class="panel panel-success">
                         <div class="panel-heading">
                             <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}/issues/{{time_record.gitlab_issue.id }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
