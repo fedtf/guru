@@ -51,7 +51,7 @@
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">История задач</a></li>
+                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
                     {% endif %}
                 {% endif %}
             </ul>

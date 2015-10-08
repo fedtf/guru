@@ -8,7 +8,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
 
 
 def create_data():
@@ -37,8 +37,8 @@ def create_data():
 
 class WorkReportListTest(TestCase):
     def setUp(self):
-        get_user_model().objects.create_superuser(username='test', password='testpass',
-                                                  email='testadmin@example.com')
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
         self.client.login(username='test', password='testpass')
 
     def test_url_resolves_to_work_report_list_view(self):
@@ -64,6 +64,82 @@ class WorkReportListTest(TestCase):
         get_user_model().objects.create_user(username='testuser2', password='pass')
         response = self.client.get('/work-report-list/')
         self.assertEqual(response.context['user_list'].count(), 3)
+
+    def test_user_projects_issues_statistics(self):
+        gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=1, token='asdsgreeg')
+
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+
+        UserToProjectAccess.objects.create(user=self.user, project=new_project, type='developer')
+
+        issue1 = GitLabIssue.objects.create(gitlab_issue_id=1, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=1)
+        issue2 = GitLabIssue.objects.create(gitlab_issue_id=2, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=2)
+        GitLabIssue.objects.create(gitlab_issue_id=3, gitlab_project=mile.gitlab_project,
+                                   gitlab_issue_iid=3)
+        issue4 = GitLabIssue.objects.create(gitlab_issue_id=4, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=4)
+        GitLabIssue.objects.create(gitlab_issue_id=5, gitlab_project=mile.gitlab_project,
+                                   gitlab_issue_iid=5)
+        GitLabIssue.objects.create(gitlab_issue_id=6, gitlab_project=mile.gitlab_project,
+                                   gitlab_issue_iid=6)
+        self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 6, 'unassigned': 6})
+
+        IssueTypeUpdate.objects.create(gitlab_issue=issue1, type="in_progress", project=new_project)
+        self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 5, 'unassigned': 5})
+
+        issue2.assignee = gitlab_auth
+        issue2.save()
+        self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 5, 'unassigned': 4})
+
+        issue4.assignee = gitlab_auth
+        issue4.save()
+        self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 5, 'unassigned': 3})
+
+        IssueTypeUpdate.objects.create(gitlab_issue=issue4, type="verified", project=new_project)
+        self.assertEqual(self.user.gitlabauthorisation.user_projects_issues_statistics, {'open': 4, 'unassigned': 3})
+
+    def test_user_current_issue(self):
+        gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=1, token='asdsgreeg')
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+
+        UserToProjectAccess.objects.create(user=self.user, project=new_project, type='developer')
+
+        issue1 = GitLabIssue.objects.create(gitlab_issue_id=1, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=1)
+        GitLabIssue.objects.create(gitlab_issue_id=2, gitlab_project=mile.gitlab_project,
+                                   gitlab_issue_iid=2)
+
+        issue1.assignee = gitlab_auth
+        issue1.save()
+
+        self.assertEqual(gitlab_auth.current_issue, None)
+
+        IssueTypeUpdate.objects.create(gitlab_issue=issue1, type="in_progress")
+        self.assertEqual(gitlab_auth.current_issue, issue1)
+
+    def test_only_six_last_time_records_in_queryset(self):
+        mile, _, _ = create_data()
+
+        issue1 = GitLabIssue.objects.create(gitlab_issue_id=1, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=1)
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+
+        response = self.client.get('/work-report-list/')
+
+        self.assertEqual(self.user.issues_time_spent_records.all().count(), 7)
+
+        for user in response.context['user_list']:
+            self.assertLessEqual(len(user.time_spent_records), 6)
 
 
 class ProjectReportTest(TestCase):
