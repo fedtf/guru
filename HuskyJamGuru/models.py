@@ -133,6 +133,9 @@ class GitLabMilestone(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return '{}#{}'.format(self.gitlab_project.project.get_absolute_url(), self.pk)
+
     class Meta:
         ordering = ['priority']
 
