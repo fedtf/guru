@@ -32,7 +32,7 @@ class Project(models.Model):
         for i in range((end_date - self.creation_date).days + 1):
             date = self.creation_date + datetime.timedelta(days=i)
             verified += self.issues_type_updates.filter(time__contains=date,
-                                                       type='verified').count()
+                                                        type='verified').count()
             report_list.append({'date': date, 'issues': issues_number - verified})
         return report_list
 
