@@ -54,8 +54,8 @@ class ProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
-        context['user_to_project_access'] = UserToProjectAccess.objects.get(user=self.request.user,
-                                                                            project=self.object)
+        context['user_to_project_accesses'] = [access.type for access in UserToProjectAccess.objects.filter(
+                                               user=self.request.user, project=self.object).all()]
 
         show_unassigned = False
         type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
@@ -66,6 +66,19 @@ class ProjectDetailView(DetailView):
         context['show_unassigned'] = show_unassigned
 
         return context
+
+
+class ProjectUpdateView(braces_views.LoginRequiredMixin,
+                        braces_views.SuperuserRequiredMixin,
+                        UpdateView):
+    model = Project
+    fields = ['finish_date_assessment']
+    template_name = 'HuskyJamGuru/project_update.html'
+
+    def get_form(self, form_class):
+        form = super(ProjectUpdateView, self).get_form(form_class)
+        form.fields['finish_date_assessment'].help_text = 'e.g. 2015-10-8'
+        return form
 
 
 class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):

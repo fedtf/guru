@@ -26,14 +26,14 @@ class Project(models.Model):
     @property
     def report_list(self):
         report_list = []
-        closed = 0
+        verified = 0
         issues_number = self.issues.count()
         end_date = min(timezone.now().date(), self.finish_date_assessment)
         for i in range((end_date - self.creation_date).days + 1):
             date = self.creation_date + datetime.timedelta(days=i)
-            closed += self.issues_type_updates.filter(time__contains=date,
-                                                      type='closed').count()
-            report_list.append({'date': date, 'issues': issues_number - closed})
+            verified += self.issues_type_updates.filter(time__contains=date,
+                                                        type='verified').count()
+            report_list.append({'date': date, 'issues': issues_number - verified})
         return report_list
 
     @property

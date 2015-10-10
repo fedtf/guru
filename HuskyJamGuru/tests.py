@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView
+from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView,\
+    ProjectUpdateView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
 
@@ -198,14 +199,14 @@ class ProjectReportTest(TestCase):
         new_gitlab_issue_type_update = IssueTypeUpdate()
         new_gitlab_issue_type_update.time = today - datetime.timedelta(days=3)
         new_gitlab_issue_type_update.gitlab_issue = new_gitlab_issue
-        new_gitlab_issue_type_update.type = "closed"
+        new_gitlab_issue_type_update.type = "verified"
         new_gitlab_issue_type_update.project = new_project
         new_gitlab_issue_type_update.save()
 
         new_gitlab_issue2_type_update = IssueTypeUpdate()
         new_gitlab_issue2_type_update.time = today - datetime.timedelta(days=1)
         new_gitlab_issue2_type_update.gitlab_issue = new_gitlab_issue2
-        new_gitlab_issue2_type_update.type = "closed"
+        new_gitlab_issue2_type_update.type = "verified"
         new_gitlab_issue2_type_update.project = new_project
         new_gitlab_issue2_type_update.save()
 
@@ -218,6 +219,47 @@ class ProjectReportTest(TestCase):
                        {'date': today - datetime.timedelta(days=0), 'issues': 1}]
 
         self.assertEquals(report_list, assert_list)
+
+
+class ProjectUpdateTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        new_project = Project.objects.create(name='testproject',
+                                             creation_date=timezone.now(),
+                                             finish_date_assessment=timezone.now() + datetime.timedelta(days=3))
+        self.project = new_project
+        self.url = '/project-update/{}/'.format(self.project.pk)
+
+    def test_url_resolves_to_work_report_list_view(self):
+        found = resolve(self.url)
+        self.assertEqual(found.func.__name__, ProjectUpdateView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_redirects_to_login_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.url)
+        self.assertRedirects(response, '/login?next={}'.format(self.url))
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/project_update.html')
+
+    def test_project_detail_contains_link_to_project_update(self):
+        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
+        self.assertContains(response, self.url)
+
+    def test_date_updates_after_post(self):
+        new_date = (self.project.creation_date + datetime.timedelta(days=3)).date()
+        new_date_string = new_date.strftime('%Y-%m-%d')
+        self.client.post(self.url, {'finish_date_assessment': new_date_string})
+        project = Project.objects.get(pk=self.project.pk)
+        self.assertEqual(project.finish_date_assessment, new_date)
 
 
 class MilestoneSortTest(TestCase):

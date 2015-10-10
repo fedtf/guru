@@ -6,6 +6,9 @@
     .milestone_up, .milestone_down {
         cursor:pointer;
     }
+    .head-links a {
+        padding: 0 20px;
+    }
     </style>
 {% endblock %}
 
@@ -23,13 +26,22 @@
     </div>
 
     <div class="bs-docs-section">
-        {% if user.is_superuser %}
-            <div class="row">
+        <div class="row head-links">
+            {% if user.is_superuser %}
                 <a href="{% url 'HuskyJamGuru:project-columns-edit' pk=project.pk %}" class="pull-right">
                     <small>Columns edit</small>
                 </a>
-            </div>
-        {% endif %}
+                <a href="{% url 'HuskyJamGuru:project-update' pk=project.pk %}" class="pull-right">
+                    <small>Edit project</small>
+                </a>
+            {% endif %}
+            {% if 'manager' in user_to_project_accesses %}
+                <a href="{% url 'HuskyJamGuru:project-report' project.pk %}" 
+                    class="report-list pull-right">
+                    <small>Project report</small>
+                </a>
+            {% endif %}
+        </div>
         <div class="row" id="columns-header">
             {% for type_tuple in project.issues_types_tuple %}
                 <div class="issue-type-column {% if show_unassigned %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
@@ -46,10 +58,7 @@
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
                 {{ gitlab_project.name }} 
-                {% if user_to_project_access.type == 'manager' %}
-                    <a href="{% url 'HuskyJamGuru:project-report' gitlab_project.pk %}" 
-                        class="report-list pull-right">Project report</a>
-                {% endif %}<br><br>
+                <br><br>
                 {% for milestone in gitlab_project.gitlab_opened_milestones %}
                     <div id="{{ milestone.pk }}" class="panel panel-default milestone-panel">
                         <div class="panel-heading"><a target="_blank" class="milestone-link" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a>
