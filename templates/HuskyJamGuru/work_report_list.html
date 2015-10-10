@@ -14,8 +14,17 @@
                         {% if current_issue %}
                             <div class="panel panel-warning">
                                 <div class="panel-heading">
-                                    <a target="_blank" href="{{ current_issur.link }}" class="issue-name">{{ current_issue.name }}</a>
-                                    <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minutes</small>)
+                                    <div class="row">
+                                        <div class="col-lg-5">
+                                            <a target="_blank" href="{{ current_issue.link }}" class="issue-name">{{ current_issue.name }}</a>
+                                            <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minutes</small>)
+                                        </div>
+                                        <div class="col-lg-7">
+                                            <small>
+                                                Start: {{ current_issue.current_type.time|date:"Y-j-n G:i" }}
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="panel-body">
                                     <small>Milestone: </small>
@@ -33,8 +42,20 @@
                     {% for time_record in user.time_spent_records %}
                     <div class="panel panel-success">
                         <div class="panel-heading">
-                            <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
-                            <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                            <div class="row">
+                                <div class="col-lg-5">
+                                    <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
+                                    <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                                </div>
+                                <div class="col-lg-7">
+                                    <small>
+                                        Start: {{ time_record.time_start|date:"Y-j-n G:i" }}<br/>
+                                        {% if time_record.time_stop %}
+                                        Stop: {{ time_record.time_stop|date:"Y-j-n G:i" }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                         <div class="panel-body">
                             <small>Milestone: </small>
