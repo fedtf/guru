@@ -195,6 +195,7 @@
                     var targetPlaceForPanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']").find("." + issues[i].current_type.type + "-row");
                     if (!targetPlaceForPanel.length) {
                         unassignedColumn = $('#unassigned-column');
+                        console.log("[milestone-id='" + issues[i].gitlab_milestone + "']")
                         if (!unassignedColumn.length) {
                             issueTypeColumns = $('.issue-type-column');
                             var oldBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));

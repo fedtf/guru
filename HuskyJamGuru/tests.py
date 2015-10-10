@@ -8,7 +8,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
 
 
 def create_data():
@@ -120,6 +120,26 @@ class WorkReportListTest(TestCase):
 
         IssueTypeUpdate.objects.create(gitlab_issue=issue1, type="in_progress")
         self.assertEqual(gitlab_auth.current_issue, issue1)
+
+    def test_only_six_last_time_records_in_queryset(self):
+        mile, _, _ = create_data()
+
+        issue1 = GitLabIssue.objects.create(gitlab_issue_id=1, gitlab_project=mile.gitlab_project,
+                                            gitlab_issue_iid=1)
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+        IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue1, time_start=timezone.now())
+
+        response = self.client.get('/work-report-list/')
+
+        self.assertEqual(self.user.issues_time_spent_records.all().count(), 7)
+
+        for user in response.context['user_list']:
+            self.assertLessEqual(len(user.time_spent_records), 6)
 
 
 class ProjectReportTest(TestCase):
