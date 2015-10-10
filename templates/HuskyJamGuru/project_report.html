@@ -82,7 +82,7 @@
             var lineDataActual = [
                 {
                     'x':new Date({{ project.creation_date|date:"Y,n-1,j" }}),
-                    'y':{{ project.issues_number }}
+                    'y':{{ project.issues.count }}
                 },
                 {% for elem in report_list %}
                 {
