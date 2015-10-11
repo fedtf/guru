@@ -27,10 +27,7 @@
 
     <div class="bs-docs-section">
         <div class="row head-links">
-            {% if user.is_superuser %}
-                <a href="{% url 'HuskyJamGuru:project-columns-edit' pk=project.pk %}" class="pull-right">
-                    <small>Columns edit</small>
-                </a>
+            {% if user.is_superuser or 'manager' in user_to_project_accesses %}
                 <a href="{% url 'HuskyJamGuru:project-update' pk=project.pk %}" class="pull-right">
                     <small>Edit project</small>
                 </a>

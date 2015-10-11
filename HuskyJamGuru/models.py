@@ -103,6 +103,10 @@ class GitlabAuthorisation(models.Model):
                 return issue
         return None
 
+    def to_project_access_types(self, project):
+        return [access.type for access in UserToProjectAccess.objects.filter(
+                user=self.user, project=project).all()]
+
 
 class GitlabModelExtension(models.Model):
     gitlab_id = models.IntegerField(unique=True, blank=None)

@@ -54,8 +54,7 @@ class ProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
-        context['user_to_project_accesses'] = [access.type for access in UserToProjectAccess.objects.filter(
-                                               user=self.request.user, project=self.object).all()]
+        context['user_to_project_accesses'] = self.request.user.gitlabauthorisation.to_project_access_types(self.object)
 
         show_unassigned = False
         type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
@@ -69,22 +68,22 @@ class ProjectDetailView(DetailView):
 
 
 class ProjectUpdateView(braces_views.LoginRequiredMixin,
-                        braces_views.SuperuserRequiredMixin,
+                        braces_views.UserPassesTestMixin,
                         UpdateView):
     model = Project
-    fields = ['finish_date_assessment']
+    fields = ['finish_date_assessment', 'issues_types']
     template_name = 'HuskyJamGuru/project_update.html'
+
+    def test_func(self, user):
+        return (user.is_superuser or
+                'manager' in user.gitlabauthorisation.to_project_access_types(self.get_object()))
 
     def get_form(self, form_class):
         form = super(ProjectUpdateView, self).get_form(form_class)
         form.fields['finish_date_assessment'].help_text = 'e.g. 2015-10-8'
+        form.fields['finish_date_assessment'].required = False
+        form.fields['issues_types'].required = False
         return form
-
-
-class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):
-    model = Project
-    fields = ['issues_types']
-    template_name = 'HuskyJamGuru/project_columns_edit.html'
 
 
 class SortMilestonesView(braces_views.LoginRequiredMixin,

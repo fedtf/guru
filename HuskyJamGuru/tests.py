@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import WorkReportListView, ProjectReportView, ProjectColumnsEditView, LoginAsGuruUserView,\
+from .views import WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
@@ -225,41 +225,104 @@ class ProjectUpdateTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
         self.client.login(username='test', password='testpass')
-        new_project = Project.objects.create(name='testproject',
-                                             creation_date=timezone.now(),
-                                             finish_date_assessment=timezone.now() + datetime.timedelta(days=3))
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+        new_project.finish_date_assessment = new_project.creation_date + datetime.timedelta(days=3)
+        new_project.save()
         self.project = new_project
-        self.url = '/project-update/{}/'.format(self.project.pk)
+        self.page_url = '/project-update/{}/'.format(self.project.pk)
 
     def test_url_resolves_to_work_report_list_view(self):
-        found = resolve(self.url)
+        found = resolve(self.page_url)
         self.assertEqual(found.func.__name__, ProjectUpdateView.__name__)
 
     def test_page_responds_with_200(self):
-        response = self.client.get(self.url)
+        response = self.client.get(self.page_url)
         self.assertEqual(response.status_code, 200)
 
-    def test_page_redirects_to_login_if_not_superuser(self):
-        get_user_model().objects.create_user(username='notsuper', password='testpass')
+    def test_page_redirects_to_login_if_simple_user(self):
+        user = get_user_model().objects.create_user(username='notsuper', password='testpass')
+        GitlabAuthorisation.objects.create(user=user, gitlab_user_id=3, token='toke')
         self.client.login(username='notsuper', password='testpass')
-        response = self.client.get(self.url)
-        self.assertRedirects(response, '/login?next={}'.format(self.url))
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, '/login?next={}'.format(self.page_url))
+
+    def test_page_not_redirects_if_manager(self):
+        user = get_user_model().objects.create_user(username='usermanager', password='testpass')
+        GitlabAuthorisation.objects.create(user=user, gitlab_user_id=3, token='toke')
+        UserToProjectAccess.objects.create(user=user, project=self.project, type='manager')
+        self.client.login(username='usermanager', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
 
     def test_page_uses_correct_template(self):
-        response = self.client.get(self.url)
+        response = self.client.get(self.page_url)
         self.assertTemplateUsed(response, 'HuskyJamGuru/project_update.html')
 
     def test_project_detail_contains_link_to_project_update(self):
         response = self.client.get('/project-detail/{}/'.format(self.project.pk))
-        self.assertContains(response, self.url)
+        self.assertContains(response, self.page_url)
 
     def test_date_updates_after_post(self):
         new_date = (self.project.creation_date + datetime.timedelta(days=3)).date()
         new_date_string = new_date.strftime('%Y-%m-%d')
-        self.client.post(self.url, {'finish_date_assessment': new_date_string})
+        self.client.post(self.page_url, {'finish_date_assessment': new_date_string})
         project = Project.objects.get(pk=self.project.pk)
         self.assertEqual(project.finish_date_assessment, new_date)
+
+    def test_columns_saves_correctly(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project.pk)
+
+        self.assertEqual(project.issues_types, 'cool, nice, the best')
+
+    def test_project_returns_correct_issues_types_tuple(self):
+        data = {
+            'issues_types': 'cool, nice, the best'
+        }
+
+        self.client.post(self.page_url, data)
+        project = Project.objects.get(pk=self.project.pk)
+
+        expected_tuple = (
+            ('cool', 'Cool'),
+            ('nice', 'Nice'),
+            ('the_best', 'The Best'),
+        )
+
+        self.assertEqual(project.issues_types_tuple, expected_tuple)
+
+    def test_detail_project_view_shows_unassigned_column_when_necessary(self):
+        UserToProjectAccess.objects.create(user=self.user, project=self.project, type='developer')
+
+        GitLabIssue.objects.create(gitlab_issue_id=0,
+                                   gitlab_project=self.project.gitlab_projects.first(),
+                                   gitlab_issue_iid=0)
+        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=1)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue1,
+                                       project=self.project,
+                                       type='in_progress')
+
+        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
+        self.assertEqual(response.context['show_unassigned'], False)
+
+        new_issue2 = GitLabIssue.objects.create(gitlab_issue_id=2,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=2)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue2,
+                                       project=self.project,
+                                       type='unknown')
+
+        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
+        self.assertEqual(response.context['show_unassigned'], True)
 
 
 class MilestoneSortTest(TestCase):
@@ -334,88 +397,6 @@ class MilestoneSortTest(TestCase):
         response = self.client.post('/sort-milestones', data)
 
         self.assertEqual(response.status_code, 403)
-
-
-class ProjectColumnsEditTest(TestCase):
-    def setUp(self):
-        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
-                                                              email='testadmin@example.com')
-        self.client.login(username='test', password='testpass')
-
-        mile, _, _ = create_data()
-        new_project = mile.gitlab_project.project
-        self.project = new_project
-        self.page_url = '/project-columns-edit/{}/'.format(new_project.pk)
-
-    def test_url_resolves_to_work_report_list_view(self):
-        found = resolve(self.page_url)
-        self.assertEqual(found.func.__name__, ProjectColumnsEditView.__name__)
-
-    def test_page_responds_with_200(self):
-        response = self.client.get(self.page_url)
-        self.assertEqual(response.status_code, 200)
-
-    def test_page_redirects_to_login_if_not_superuser(self):
-        get_user_model().objects.create_user(username='notsuper', password='testpass')
-        self.client.login(username='notsuper', password='testpass')
-        response = self.client.get(self.page_url)
-        self.assertRedirects(response, '/login?next={}'.format(self.page_url))
-
-    def test_page_uses_correct_template(self):
-        response = self.client.get(self.page_url)
-        self.assertTemplateUsed(response, 'HuskyJamGuru/project_columns_edit.html')
-
-    def test_columns_saves_correctly(self):
-        data = {
-            'issues_types': 'cool, nice, the best'
-        }
-
-        self.client.post(self.page_url, data)
-        project = Project.objects.get(pk=self.project.pk)
-
-        self.assertEqual(project.issues_types, 'cool, nice, the best')
-
-    def test_project_returns_correct_issues_types_tuple(self):
-        data = {
-            'issues_types': 'cool, nice, the best'
-        }
-
-        self.client.post(self.page_url, data)
-        project = Project.objects.get(pk=self.project.pk)
-
-        expected_tuple = (
-            ('cool', 'Cool'),
-            ('nice', 'Nice'),
-            ('the_best', 'The Best'),
-        )
-
-        self.assertEqual(project.issues_types_tuple, expected_tuple)
-
-    def test_detail_project_view_shows_unassigned_column_when_necessary(self):
-        UserToProjectAccess.objects.create(user=self.user, project=self.project, type='developer')
-
-        GitLabIssue.objects.create(gitlab_issue_id=0,
-                                   gitlab_project=self.project.gitlab_projects.first(),
-                                   gitlab_issue_iid=0)
-        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
-                                                gitlab_project=self.project.gitlab_projects.first(),
-                                                gitlab_issue_iid=1)
-        IssueTypeUpdate.objects.create(gitlab_issue=new_issue1,
-                                       project=self.project,
-                                       type='in_progress')
-
-        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
-        self.assertEqual(response.context['show_unassigned'], False)
-
-        new_issue2 = GitLabIssue.objects.create(gitlab_issue_id=2,
-                                                gitlab_project=self.project.gitlab_projects.first(),
-                                                gitlab_issue_iid=2)
-        IssueTypeUpdate.objects.create(gitlab_issue=new_issue2,
-                                       project=self.project,
-                                       type='unknown')
-
-        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
-        self.assertEqual(response.context['show_unassigned'], True)
 
 
 class TestLoginAsGuruUser(TestCase):
