@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
+from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
@@ -34,6 +34,79 @@ def create_data():
     mile3.save()
 
     return (mile1, mile2, mile3)
+
+
+class ProjectDetailTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.project = new_project
+        self.page_url = '/project-detail/{}/'.format(self.project.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, ProjectDetailView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/project_detail.html')
+
+    def test_view_shows_unassigned_milestone_when_necessary(self):
+        mile = self.project.gitlab_projects.first().gitlab_milestones.first()
+        GitLabIssue.objects.create(gitlab_issue_id=0,
+                                   gitlab_project=self.project.gitlab_projects.first(),
+                                   gitlab_issue_iid=0,
+                                   gitlab_milestone=mile)
+        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=1)
+
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['show_unassigned_milestone'], True)
+
+        new_issue1.gitlab_milestone = mile
+        new_issue1.save()
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['show_unassigned_milestone'], False)
+
+        GitLabIssue.objects.create(gitlab_issue_id=2,
+                                   gitlab_project=self.project.gitlab_projects.first(),
+                                   gitlab_issue_iid=2)
+
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['show_unassigned_milestone'], True)
+
+    def test_view_shows_unassigned_column_when_necessary(self):
+        GitLabIssue.objects.create(gitlab_issue_id=0,
+                                   gitlab_project=self.project.gitlab_projects.first(),
+                                   gitlab_issue_iid=0)
+        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=1)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue1,
+                                       project=self.project,
+                                       type='in_progress')
+
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['show_unassigned_column'], False)
+
+        new_issue2 = GitLabIssue.objects.create(gitlab_issue_id=2,
+                                                gitlab_project=self.project.gitlab_projects.first(),
+                                                gitlab_issue_iid=2)
+        IssueTypeUpdate.objects.create(gitlab_issue=new_issue2,
+                                       project=self.project,
+                                       type='unknown')
+
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['show_unassigned_column'], True)
 
 
 class WorkReportListTest(TestCase):
@@ -297,32 +370,6 @@ class ProjectUpdateTest(TestCase):
         )
 
         self.assertEqual(project.issues_types_tuple, expected_tuple)
-
-    def test_detail_project_view_shows_unassigned_column_when_necessary(self):
-        UserToProjectAccess.objects.create(user=self.user, project=self.project, type='developer')
-
-        GitLabIssue.objects.create(gitlab_issue_id=0,
-                                   gitlab_project=self.project.gitlab_projects.first(),
-                                   gitlab_issue_iid=0)
-        new_issue1 = GitLabIssue.objects.create(gitlab_issue_id=1,
-                                                gitlab_project=self.project.gitlab_projects.first(),
-                                                gitlab_issue_iid=1)
-        IssueTypeUpdate.objects.create(gitlab_issue=new_issue1,
-                                       project=self.project,
-                                       type='in_progress')
-
-        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
-        self.assertEqual(response.context['show_unassigned'], False)
-
-        new_issue2 = GitLabIssue.objects.create(gitlab_issue_id=2,
-                                                gitlab_project=self.project.gitlab_projects.first(),
-                                                gitlab_issue_iid=2)
-        IssueTypeUpdate.objects.create(gitlab_issue=new_issue2,
-                                       project=self.project,
-                                       type='unknown')
-
-        response = self.client.get('/project-detail/{}/'.format(self.project.pk))
-        self.assertEqual(response.context['show_unassigned'], True)
 
 
 class MilestoneSortTest(TestCase):

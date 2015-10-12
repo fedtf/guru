@@ -56,14 +56,20 @@ class ProjectDetailView(DetailView):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
         context['user_to_project_accesses'] = self.request.user.gitlabauthorisation.to_project_access_types(self.object)
 
-        show_unassigned = False
+        show_unassigned_column = False
         type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
-        for issue in self.object.issues:
+        for issue in self.object.issues.all():
             if issue.current_type.type not in type_list:
-                show_unassigned = True
+                show_unassigned_column = True
                 break
-        context['show_unassigned'] = show_unassigned
+        context['show_unassigned_column'] = show_unassigned_column
 
+        show_unassigned_milestone = False
+        for issue in self.object.issues.all():
+            if issue.gitlab_milestone is None:
+                show_unassigned_milestone = True
+                break
+        context['show_unassigned_milestone'] = show_unassigned_milestone
         return context
 
 
