@@ -19,7 +19,6 @@ def get_gitlab(request=None, redirect_uri=''):
     if request is None:
         gitlab = OAuth2Session(client_id, redirect_uri=redirect_uri)
     else:
-        print(request.user)
         gitlab = OAuth2Session(client_id, token=json.loads(request.user.gitlabauthorisation.token.replace("'", '"')))
     return gitlab
 
@@ -114,11 +113,17 @@ def load_new_and_update_existing_projects_from_gitlab(request):
             gitlab_issue.name = issue['title']
             if issue['milestone'] is not None:
                 gitlab_issue.gitlab_milestone = GitLabMilestone.objects.get(
+<<<<<<< HEAD
                     gitlab_milestone_id=issue['milestone']['id'],
                     gitlab_project=gitlab_project
                 )
             else:
                 gitlab_issue.gitlab_milestone = None
+=======
+                    gitlab_milestone_id=issue['milestone']['iid'],
+                    gitlab_project=gitlab_project
+                )
+>>>>>>> master
             if issue['assignee'] is not None:
                 try:
                     gitlab_issue.assignee = GitlabAuthorisation.objects.get(gitlab_user_id=issue['assignee']['id'])
