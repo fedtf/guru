@@ -108,6 +108,16 @@ class ProjectDetailTest(TestCase):
         response = self.client.get(self.page_url)
         self.assertEqual(response.context['show_unassigned_column'], True)
 
+    def test_create_links_in_response(self):
+        gitlab_project = self.project.gitlab_projects.first()
+        gitlab_project.path_with_namespace = 'core/proj'
+        gitlab_project.save()
+
+        response = self.client.get(self.page_url)
+        self.assertContains(response, 'href="http://185.22.60.142:8889/core/proj/milestones/new"')
+        new_issue_link = "http://185.22.60.142:8889/core/proj/issues/new?issue%5Bmilestone_id%5D={}"
+        self.assertContains(response, new_issue_link.format(gitlab_project.gitlab_milestones.first().pk))
+
 
 class WorkReportListTest(TestCase):
     def setUp(self):

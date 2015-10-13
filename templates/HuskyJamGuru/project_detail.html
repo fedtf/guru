@@ -55,6 +55,9 @@
         <div class="row">
             {% for gitlab_project in project.gitlab_projects.all %}
                 {{ gitlab_project.name }}
+                <a target="_blank" href="{{ gitlab_project.create_milestone_link }}">
+                    <span class="glyphicon glyphicon-plus"></span>
+                </a>
                 <br><br>
                 <div id="{{ gitlab_project.pk }}" class="project-milestones">
                     {% for milestone in gitlab_project.gitlab_opened_milestones %}
@@ -66,6 +69,9 @@
                                 <span {% if milestone.priority == gitlab_project.gitlab_milestones.count %}style="display:none"{% endif %}
                                     class="milestone_down glyphicon glyphicon-arrow-down"></span>
                             {% endif %}
+                            <a target="_blank" href="{{ milestone.create_issue_link }}">
+                                <span class="glyphicon glyphicon-plus pull-right"></span>
+                            </a>
                             </div>
                             <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
                                 {% for type_tuple in project.issues_types_tuple %}

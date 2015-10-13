@@ -122,6 +122,10 @@ class GitlabProject(GitlabModelExtension):
     def gitlab_opened_milestones(self):
         return self.gitlab_milestones.filter(closed=False).all()
 
+    @property
+    def create_milestone_link(self):
+        return '{}/{}/milestones/new'.format(settings.GITLAB_URL, self.path_with_namespace)
+
     def __str__(self):
         return self.name_with_namespace
 
@@ -141,6 +145,12 @@ class GitLabMilestone(models.Model):
             else:
                 self.priority = 1
         super(GitLabMilestone, self).save(*args, **kwargs)
+
+    @property
+    def create_issue_link(self):
+        return '{}/{}/issues/new?issue%5Bmilestone_id%5D={}'.format(settings.GITLAB_URL,
+                                                                    self.gitlab_project.path_with_namespace,
+                                                                    self.gitlab_milestone_id)
 
     def __str__(self):
         return self.name
