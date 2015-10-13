@@ -118,9 +118,6 @@ def load_new_and_update_existing_projects_from_gitlab(request):
                 )
             else:
                 gitlab_issue.gitlab_milestone = None
-                    gitlab_milestone_id=issue['milestone']['iid'],
-                    gitlab_project=gitlab_project
-                )
             if issue['assignee'] is not None:
                 try:
                     gitlab_issue.assignee = GitlabAuthorisation.objects.get(gitlab_user_id=issue['assignee']['id'])
