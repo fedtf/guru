@@ -62,11 +62,11 @@
                 <div id="{{ gitlab_project.pk }}" class="project-milestones">
                     {% for milestone in gitlab_project.gitlab_opened_milestones %}
                         <div id="{{ milestone.pk }}" class="panel panel-default milestone-panel">
-                            <div class="panel-heading"><a target="_blank" class="milestone-link" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_id }}"> {{ milestone.name }}</a>
+                            <div class="panel-heading"><a target="_blank" class="milestone-link" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_iid }}"> {{ milestone.name }}</a>
                             {% if user.is_superuser %}
                                 <span {% if milestone.priority == 1 %}style="display:none"{% endif %} 
                                     class="milestone_up glyphicon glyphicon-arrow-up"></span>
-                                <span {% if milestone.priority == gitlab_project.gitlab_milestones.count %}style="display:none"{% endif %}
+                                <span {% if milestone.priority == gitlab_project.gitlab_opened_milestones.count %}style="display:none"{% endif %}
                                     class="milestone_down glyphicon glyphicon-arrow-down"></span>
                             {% endif %}
                             <a target="_blank" href="{{ milestone.create_issue_link }}">
@@ -93,7 +93,7 @@
                     {% if show_unassigned_milestone %}
                         <div id="unassigned-milestone" class="panel panel-default milestone-panel">
                             <div class="panel-heading">
-                                Unassigned milestones
+                                Unassigned milestone
                             </div>
                             <div class="panel-body milestone">
                                 {% for type_tuple in project.issues_types_tuple %}

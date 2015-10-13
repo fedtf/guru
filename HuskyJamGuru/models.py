@@ -132,6 +132,7 @@ class GitlabProject(GitlabModelExtension):
 
 class GitLabMilestone(models.Model):
     gitlab_milestone_id = models.IntegerField(unique=False, blank=None)
+    gitlab_milestone_iid = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)

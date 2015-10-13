@@ -22,15 +22,15 @@ def create_data():
     gitlab_project.save()
 
     mile1 = GitLabMilestone(name='mile1', gitlab_project=gitlab_project,
-                            gitlab_milestone_id=1)
+                            gitlab_milestone_id=1, gitlab_milestone_iid=2)
     mile1.save()
 
     mile2 = GitLabMilestone(name='mile2', gitlab_project=gitlab_project,
-                            gitlab_milestone_id=2)
+                            gitlab_milestone_id=2, gitlab_milestone_iid=3)
     mile2.save()
 
     mile3 = GitLabMilestone(name='mile3', gitlab_project=gitlab_project,
-                            gitlab_milestone_id=3)
+                            gitlab_milestone_id=3, gitlab_milestone_iid=4)
     mile3.save()
 
     return (mile1, mile2, mile3)
@@ -114,9 +114,10 @@ class ProjectDetailTest(TestCase):
         gitlab_project.save()
 
         response = self.client.get(self.page_url)
-        self.assertContains(response, 'href="http://185.22.60.142:8889/core/proj/milestones/new"')
+        self.assertContains(response, 'http://185.22.60.142:8889/core/proj/milestones/new')
         new_issue_link = "http://185.22.60.142:8889/core/proj/issues/new?issue%5Bmilestone_id%5D={}"
-        self.assertContains(response, new_issue_link.format(gitlab_project.gitlab_milestones.first().pk))
+        new_milestone_gitlab_id = gitlab_project.gitlab_milestones.first().gitlab_milestone_id
+        self.assertContains(response, new_issue_link.format(new_milestone_gitlab_id))
 
 
 class WorkReportListTest(TestCase):
