@@ -6,9 +6,6 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.conf import settings
 
-from django.contrib.auth import get_user_model
-from django.test import RequestFactory
-
 import json
 
 from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilestone, GitLabIssue
@@ -132,11 +129,7 @@ def load_new_and_update_existing_projects_from_gitlab(request):
             gitlab_issue.save()
 
 
-def fix_milestones_id():
-    factory = RequestFactory()
-    request = factory.get('/')
-    request.user = get_user_model().objects.filter(is_superuser=True).first()
-
+def fix_milestones_id(request):
     projects = json.loads(
         get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
     )

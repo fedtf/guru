@@ -8,9 +8,14 @@ from django.shortcuts import redirect, render
 
 from braces import views as braces_views
 
-from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone
+
+
+def milestones_fix(request):
+    fix_milestones_id(request)
+    return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
 
 class Login(TemplateView):
