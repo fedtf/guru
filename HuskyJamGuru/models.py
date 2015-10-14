@@ -99,6 +99,10 @@ class GitlabAuthorisation(models.Model):
         return user_projects_issues_statistics
 
     @property
+    def user_issues_weekly_time_history(self):
+        first_date = self.user.issues_time_spent_records.last()
+
+    @property
     def current_issue(self):
         all_user_issues = GitLabIssue.objects.filter(assignee=self).all()
         for issue in all_user_issues:
