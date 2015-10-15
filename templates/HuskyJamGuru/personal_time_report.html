@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load divide %}
 
 {% block preload %}
     <style>
@@ -14,10 +15,17 @@
             padding: 10px;
             overflow-y: auto;
         }
+        .username-header {
+            margin:17px 0 13px;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
+<div class="content-container">
+    <div class="page-header text-center username-header">
+        <h1>{{ report_user.gitlabauthorisation.name }}</h1>
+    </div>
     <div class="row">
         <div id="issues-container" class="col-lg-3">
             <div id="issues-heading" class="text-center">
@@ -31,7 +39,7 @@
                                 <div class="row">
                                     <div class="col-lg-5">
                                         <a target="_blank" href="{{ current_issue.link }}" class="issue-name">{{ current_issue.name }}</a>
-                                        <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minutes</small>)
+                                        <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minute{{ current_issue.spent_minutes|pluralize }}</small>)
                                     </div>
                                     <div class="col-lg-7">
                                         <small>
@@ -59,7 +67,7 @@
                         <div class="row">
                             <div class="col-lg-5">
                                 <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
-                                <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                                <br>(<small class="issue-heading-time">{{ time_record.seconds|divide:"60" }} minute{{ time_record.seconds|divide:"60"|pluralize }}</small>)
                             </div>
                             <div class="col-lg-7">
                                 <small>
@@ -86,9 +94,11 @@
             </div>
         </div>
     </div>
+</div>
     <script>
         $(function() {
-            $('#issues-container').outerHeight($(window).height() - $('.navbar').height() - $(window).height()/20);
+            $('#issues-container').outerHeight($(window).height() - $('.navbar').outerHeight() - parseInt($('.navbar').css('marginBottom')) - 
+                $('.username-header').outerHeight() - parseInt($('.username-header').css('marginBottom')) - $(window).height()/10);
             $('#issues-panel').outerHeight($('#issues-container').height() - $('#issues-heading').outerHeight());
         })
     </script>
