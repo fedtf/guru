@@ -101,5 +101,18 @@
                 $('.username-header').outerHeight() - parseInt($('.username-header').css('marginBottom')) - $(window).height()/10);
             $('#issues-panel').outerHeight($('#issues-container').height() - $('#issues-heading').outerHeight());
         })
+    
+    var time_spent_records = [
+        {% for week in weekly_time_spent_records %}
+            startDate = {{ week.start_date }},
+            endDate = {{ week.end_date }},
+            time_spent_records = [
+                {% for record in week.time_spent_records %}
+                    startTime: {{ record.start_time }},
+                    duration: {{ record.seconds|divide:"60" }}, 
+                {% endfor %}
+            ],
+        {% endfor %}
+    ]
     </script>
 {% endblock %}

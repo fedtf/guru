@@ -99,6 +99,15 @@ class GitlabAuthorisation(models.Model):
         return user_projects_issues_statistics
 
     @property
+    def weekly_time_spent_records(self):
+        first_record = self.user.issues_time_spent_records.last()
+        monday_of_first_week = first_record.time_start.date() - \
+            datetime.timedelta(days=first_record.time_start.weekday())
+        for i in range((timezone.now().date() - monday_of_first_week).days, 0, 7):
+            date_start = datetime.date(monday_of_first_week + datetime.timedelta(days=i))
+            print(date_start)
+
+    @property
     def current_issue(self):
         all_user_issues = GitLabIssue.objects.filter(assignee=self).all()
         for issue in all_user_issues:
