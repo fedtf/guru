@@ -106,6 +106,10 @@ class GitlabAuthorisation(models.Model):
                 return issue
         return None
 
+    def to_project_access_types(self, project):
+        return [access.type for access in UserToProjectAccess.objects.filter(
+                user=self.user, project=project).all()]
+
 
 class GitlabModelExtension(models.Model):
     gitlab_id = models.IntegerField(unique=True, blank=None)
@@ -121,12 +125,17 @@ class GitlabProject(GitlabModelExtension):
     def gitlab_opened_milestones(self):
         return self.gitlab_milestones.filter(closed=False).all()
 
+    @property
+    def create_milestone_link(self):
+        return '{}/{}/milestones/new'.format(settings.GITLAB_URL, self.path_with_namespace)
+
     def __str__(self):
         return self.name_with_namespace
 
 
 class GitLabMilestone(models.Model):
     gitlab_milestone_id = models.IntegerField(unique=False, blank=None)
+    gitlab_milestone_iid = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
@@ -140,6 +149,12 @@ class GitLabMilestone(models.Model):
             else:
                 self.priority = 1
         super(GitLabMilestone, self).save(*args, **kwargs)
+
+    @property
+    def create_issue_link(self):
+        return '{}/{}/issues/new?issue%5Bmilestone_id%5D={}'.format(settings.GITLAB_URL,
+                                                                    self.gitlab_project.path_with_namespace,
+                                                                    self.gitlab_milestone_id)
 
     def __str__(self):
         return self.name

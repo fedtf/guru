@@ -8,9 +8,14 @@ from django.shortcuts import redirect, render
 
 from braces import views as braces_views
 
-from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone
+
+
+def milestones_fix(request):
+    fix_milestones_id(request)
+    return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
 
 class Login(TemplateView):
@@ -54,37 +59,42 @@ class ProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectDetailView, self).get_context_data(**kwargs)
-        context['user_to_project_accesses'] = [access.type for access in UserToProjectAccess.objects.filter(
-                                               user=self.request.user, project=self.object).all()]
+        context['user_to_project_accesses'] = self.request.user.gitlabauthorisation.to_project_access_types(self.object)
 
-        show_unassigned = False
+        show_unassigned_column = False
         type_list = [type_tuple[0] for type_tuple in self.object.issues_types_tuple]
-        for issue in self.object.issues:
+        for issue in self.object.issues.all():
             if issue.current_type.type not in type_list:
-                show_unassigned = True
+                show_unassigned_column = True
                 break
-        context['show_unassigned'] = show_unassigned
+        context['show_unassigned_column'] = show_unassigned_column
 
+        show_unassigned_milestone = False
+        for issue in self.object.issues.all():
+            if issue.gitlab_milestone is None:
+                show_unassigned_milestone = True
+                break
+        context['show_unassigned_milestone'] = show_unassigned_milestone
         return context
 
 
 class ProjectUpdateView(braces_views.LoginRequiredMixin,
-                        braces_views.SuperuserRequiredMixin,
+                        braces_views.UserPassesTestMixin,
                         UpdateView):
     model = Project
-    fields = ['finish_date_assessment']
+    fields = ['finish_date_assessment', 'issues_types']
     template_name = 'HuskyJamGuru/project_update.html'
+
+    def test_func(self, user):
+        return (user.is_superuser or
+                'manager' in user.gitlabauthorisation.to_project_access_types(self.get_object()))
 
     def get_form(self, form_class):
         form = super(ProjectUpdateView, self).get_form(form_class)
         form.fields['finish_date_assessment'].help_text = 'e.g. 2015-10-8'
+        form.fields['finish_date_assessment'].required = False
+        form.fields['issues_types'].required = False
         return form
-
-
-class ProjectColumnsEditView(braces_views.SuperuserRequiredMixin, UpdateView):
-    model = Project
-    fields = ['issues_types']
-    template_name = 'HuskyJamGuru/project_columns_edit.html'
 
 
 class SortMilestonesView(braces_views.LoginRequiredMixin,
