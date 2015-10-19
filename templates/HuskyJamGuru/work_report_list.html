@@ -7,20 +7,63 @@
             {% for user in user_list %}
             <div class="col-lg-3">
                 <h2>{{ user.gitlabauthorisation.name }}</h2>
+                <small>Total opened issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.open }}</small><br/>
+                <small>Total opened and unassigned issues: {{ user.gitlabauthorisation.user_projects_issues_statistics.unassigned }}</small><br>
                 <div class="panel panel-default">
-                    {% for time_record in user.issues_time_spent_records.all %}
+                    {% with current_issue=user.gitlabauthorisation.current_issue  %}
+                        {% if current_issue %}
+                            <div class="panel panel-warning">
+                                <div class="panel-heading">
+                                    <div class="row">
+                                        <div class="col-lg-5">
+                                            <a target="_blank" href="{{ current_issue.link }}" class="issue-name">{{ current_issue.name }}</a>
+                                            <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minutes</small>)
+                                        </div>
+                                        <div class="col-lg-7">
+                                            <small>
+                                                Start: {{ current_issue.current_type.time|date:"Y-j-n G:i" }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="panel-body">
+                                    <small>Milestone: </small>
+                                    <a target="_blank" href="{{ current_issue.gitlab_milestone.get_absolute_url }}">
+                                        <small class="milestone-name">{{ current_issue.gitlab_milestone.name }}</small><br/>
+                                    </a>
+                                    <small>Project: </small>
+                                    <a target="_blank" href="{{ current_issue.gitlab_milestone.gitlab_project.project.get_absolute_url }}">
+                                    <small class="gitlab-project-name">{{ current_issue.gitlab_milestone.gitlab_project.name }}</small><br/>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    {% for time_record in user.time_spent_records %}
                     <div class="panel panel-success">
                         <div class="panel-heading">
-                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}/issues/{{time_record.gitlab_issue.id }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
-                            <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                            <div class="row">
+                                <div class="col-lg-5">
+                                    <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
+                                    <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                                </div>
+                                <div class="col-lg-7">
+                                    <small>
+                                        Start: {{ time_record.time_start|date:"Y-j-n G:i" }}<br/>
+                                        {% if time_record.time_stop %}
+                                        Stop: {{ time_record.time_stop|date:"Y-j-n G:i" }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                         <div class="panel-body">
                             <small>Milestone: </small>
-                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}/milestones/{{time_record.gitlab_issue.gitlab_milestone.gitlab_milestone_id }}">
+                            <a target="_blank" href="{{ time_record.gitlab_issue.gitlab_milestone.get_absolute_url }}">
                                 <small class="milestone-name">{{time_record.gitlab_issue.gitlab_milestone.name }}</small><br/>
                             </a>
                             <small>Project: </small>
-                            <a target="_blank" href="{% settings_value "GITLAB_URL" %}/root/{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}">
+                            <a target="_blank" href="{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.project.get_absolute_url }}">
                             <small class="gitlab-project-name">{{time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}</small><br/>
                             </a>
                         </div>

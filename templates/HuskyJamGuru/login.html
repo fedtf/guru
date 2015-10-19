@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <a href="{% url 'gitlab_login_redirect' %}">Login with GitLab</a>
+    <a href="{% url 'gitlab_login_redirect' %}">Login with GitLab</a><br/>
+    <a href="{% url 'HuskyJamGuru:login-as-guru' %}">Login as Guru user</a>
 {% endblock %}

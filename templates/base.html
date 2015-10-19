@@ -40,7 +40,7 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="/">Husky Jam Guru</a>
+            <a class="navbar-brand" href="/">Guru</a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
@@ -51,7 +51,7 @@
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">История задач</a></li>
+                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
                     {% endif %}
                 {% endif %}
             </ul>
@@ -69,6 +69,7 @@
     {% block content %}
     {% endblock %}
     <div style="color: #949494; font-size: 0.9em;" class="text-center">{{ VERSION_DESCRIPTION }}</div>
+    <div style="color: #949494; font-size: 0.9em;" class="text-center">Made with ♥ in <a href="http://www.huskyjam.com/">HuskyJam</a></div>
     <br>
 </div>
 <script src="//ajax.aspnetcdn.com/ajax/jquery.ui/1.10.3/jquery-ui.min.js"></script>

@@ -1,39 +1,52 @@
 import datetime
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
+from django.core.urlresolvers import reverse
 
 
 class Project(models.Model):
     name = models.CharField(max_length=500, default="")
     creation_date = models.DateField()
     finish_date_assessment = models.DateField()
+    issues_types = models.TextField(default='open, in progress, fixed, verified')
 
     @property
-    def issues_number(self):
-        issues_number = 0
+    def issues(self):
+        issues = GitLabIssue.objects.none()
         gitlab_projects = self.gitlab_projects.all()
         for gitlab_project in gitlab_projects:
-            issues_number += gitlab_project.issues.count()
-        return issues_number
+            # will not work for sliced querysets
+            issues = issues | gitlab_project.issues.all()
+        return issues
 
     @property
     def report_list(self):
         report_list = []
-        closed = 0
-        issues_number = self.issues_number
+        verified = 0
+        issues_number = self.issues.count()
         end_date = min(timezone.now().date(), self.finish_date_assessment)
         for i in range((end_date - self.creation_date).days + 1):
             date = self.creation_date + datetime.timedelta(days=i)
-            closed += self.issues_type_updates.filter(time__contains=date,
-                                                      type='closed').count()
-            report_list.append({'date': date, 'issues': issues_number - closed})
+            verified += self.issues_type_updates.filter(time__contains=date,
+                                                        type='verified').count()
+            report_list.append({'date': date, 'issues': issues_number - verified})
         return report_list
+
+    @property
+    def issues_types_tuple(self):
+        external_list = [type.strip().title() for type in self.issues_types.split(',')]
+        internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
+        return tuple(zip(internal_list, external_list))
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
 
 
 class UserToProjectAccess(models.Model):
@@ -55,6 +68,13 @@ class UserToProjectAccess(models.Model):
         else:
             return None
 
+    def __str__(self):
+        try:
+            user_name = self.user.gitlabauthorisation.name + "(" + self.user.gitlabauthorisation.username + ")"
+        except ObjectDoesNotExist:
+            user_name = self.user.username
+        return self.get_type_display() + ": " + user_name + " in " + self.project.name
+
 
 class GitlabAuthorisation(models.Model):
     user = models.OneToOneField(User)
@@ -62,6 +82,33 @@ class GitlabAuthorisation(models.Model):
     token = models.CharField(max_length=500)
     name = models.CharField(max_length=500, unique=False, blank=True)
     username = models.CharField(max_length=500, unique=False, blank=True)
+
+    @property
+    def user_projects_issues_statistics(self):
+        # Returns the dictionary with the numbers of
+        # all open and open and unassigned issues
+        # in all projects that user has access to.
+        user_projects_issues_statistics = {'open': 0, 'unassigned': 0}
+
+        for project_access in self.user.to_project_accesses.all():
+            for issue in project_access.project.issues.all():
+                if issue.current_type.type == 'open':
+                    user_projects_issues_statistics['open'] += 1
+                    if not issue.assignee:
+                        user_projects_issues_statistics['unassigned'] += 1
+        return user_projects_issues_statistics
+
+    @property
+    def current_issue(self):
+        all_user_issues = GitLabIssue.objects.filter(assignee=self).all()
+        for issue in all_user_issues:
+            if issue.current_type.type == 'in_progress':
+                return issue
+        return None
+
+    def to_project_access_types(self, project):
+        return [access.type for access in UserToProjectAccess.objects.filter(
+                user=self.user, project=project).all()]
 
 
 class GitlabModelExtension(models.Model):
@@ -78,12 +125,17 @@ class GitlabProject(GitlabModelExtension):
     def gitlab_opened_milestones(self):
         return self.gitlab_milestones.filter(closed=False).all()
 
+    @property
+    def create_milestone_link(self):
+        return '{}/{}/milestones/new'.format(settings.GITLAB_URL, self.path_with_namespace)
+
     def __str__(self):
         return self.name_with_namespace
 
 
 class GitLabMilestone(models.Model):
     gitlab_milestone_id = models.IntegerField(unique=False, blank=None)
+    gitlab_milestone_iid = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
@@ -98,8 +150,17 @@ class GitLabMilestone(models.Model):
                 self.priority = 1
         super(GitLabMilestone, self).save(*args, **kwargs)
 
+    @property
+    def create_issue_link(self):
+        return '{}/{}/issues/new?issue%5Bmilestone_id%5D={}'.format(settings.GITLAB_URL,
+                                                                    self.gitlab_project.path_with_namespace,
+                                                                    self.gitlab_milestone_id)
+
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return '{}#{}'.format(self.gitlab_project.project.get_absolute_url(), self.pk)
 
     class Meta:
         ordering = ['priority']
@@ -197,7 +258,7 @@ class IssueTypeUpdate(models.Model):
     author = models.ForeignKey(User, unique=False, null=True, blank=True)
     time = models.DateTimeField(auto_now=True)
     is_current = models.BooleanField(default=True)
-    project = models.ForeignKey(Project, related_name='issues_type_updates')
+    project = models.ForeignKey(Project, editable=False, related_name='issues_type_updates')
 
     def save(self, *args, **kwargs):
         if not self.pk:
@@ -212,4 +273,6 @@ class IssueTypeUpdate(models.Model):
             for previous in IssueTypeUpdate.objects.filter(gitlab_issue=self.gitlab_issue, is_current=True):
                 previous.is_current = False
                 previous.save()
+
+        self.project = self.gitlab_issue.gitlab_project.project
         super(IssueTypeUpdate, self).save(*args, **kwargs)
