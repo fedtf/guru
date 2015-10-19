@@ -45,11 +45,18 @@
             width: 13%;
             height:100%;
             margin: 0 4px;
-            background:grey;
+            border-right: 1px solid #fff;
+            border-left: 1px solid #fff;
         }
         .week .day .day-header {
             position: relative;
             bottom: 40px;
+        }
+        .week .day .time-spent {
+            position: absolute;
+            background: green;
+            width: 100%;
+            left:0;
         }
     </style>
 {% endblock %}
@@ -189,7 +196,7 @@
             records: [
                 {% for record in week.records %}
                 {
-                    startTime: new Date({{ record.time_start|date:"Y, n-1, j" }}),
+                    startTime: new Date({{ record.time_start|date:"Y, n-1, j, G, i" }}),
                     duration: {{ record.seconds|divide:"60" }}, 
                     issue: '{{ record.gitlab_issue.name }}',
                 },
@@ -221,17 +228,54 @@
             var weekContainer = $('#calendar-for-copying').children().first().clone();
             weekContainer.find('.week-header').text(self.startDate.getDate() + '.' + (self.startDate.getMonth()+1) + ' - ' +
                     + self.endDate.getDate() + '.' + (self.endDate.getMonth()+1) + ' (Summary: ' + summary + ')');
+            var week = weekContainer.find('.week');
 
-            var weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-            for (var j = 0; j < self.records.length; j++) {
-                var record = self.records[j];
-                var week = weekContainer.find('.week');
-                week.find('.' + weekDays[record.startTime.getDay()]).append($('<div class="time-spent">').text(record.duration + ' '+ record.issue));
+            for (var i = 0; i < self.records.length; i++) {
+                appendRecordToWeek(self.records[i], week);
             }
 
             return weekContainer;
         }
+
+        function appendRecordToWeek(record, weekElem) {
+            if (record.startTime.getHours()*60 + record.startTime.getMinutes() + record.duration > 1440) {
+                // create new record if this overlaps midnight
+                var oldDuration = record.duration;
+                record.duration = 1440 - record.startTime.getHours()*60 - record.startTime.getMinutes();
+
+                var newRecord = {
+                    'issue': record.issue,
+                    'startTime': new Date(record.startTime.getFullYear(), record.startTime.getMonth(), record.startTime.getDate()+1),
+                    'duration': oldDuration - record.duration,
+                };
+                if (newRecord.startTime.getDay() != 1) {
+                    appendRecordToWeek(newRecord, weekElem);
+                } else {
+                    for (var i = 0; i < issues_time_spent_records.length; i++) {
+                        var week = issues_time_spent_records[i];
+                        if (week.startDate = newRecord.startTime) {
+                            week.records.append(newRecord);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            var durationText = Math.floor(record.duration/60) + ':' + (record.duration - Math.floor(record.duration/60)*60);
+            var elemHeight = Math.max(Math.round(record.duration/4), 1);
+            var elemBottom = startTimeToBottomHeight(record.startTime);
+
+            var recordElem = $('<div class="time-spent">').html(durationText + '<br/>' + record.issue)
+                                                          .height(elemHeight)
+                                                          .css('bottom', elemBottom);
+            weekElem.find('.' + weekDays[record.startTime.getDay()]).append(recordElem);
+        }
+
+        function startTimeToBottomHeight(startTime) {
+            var totalMinutes = startTime.getHours()*60 + startTime.getMinutes();
+            return Math.round(totalMinutes/4);
+        } 
 
         this.getElement = function() {
             var elem = render();

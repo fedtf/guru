@@ -117,8 +117,8 @@ class GitlabAuthorisation(models.Model):
             week['records'] = week_records
             weekly_records.append(week)
 
+        weekly_records.reverse()
         return weekly_records
-
 
     @property
     def current_issue(self):
