@@ -1,4 +1,5 @@
 import datetime
+import math
 
 from django.test import TestCase
 from django.core.urlresolvers import resolve, reverse
@@ -539,3 +540,57 @@ class PersonalTimeReportTest(TestCase):
     def test_work_report_list_contains_link_to_personal_time_report(self):
         response = self.client.get('/work-report-list/')
         self.assertContains(response, self.page_url)
+
+    def test_weekly_time_spent_records(self):
+        mile = self.project.gitlab_projects.first().gitlab_milestones.first()
+        issue = GitLabIssue.objects.create(gitlab_milestone=mile,
+                                           gitlab_issue_id=5,
+                                           gitlab_issue_iid=6,
+                                           gitlab_project=self.project.gitlab_projects.first())
+        record1 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                            time_start=datetime.datetime(2015, 7, 8))
+        record2 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                            time_start=datetime.datetime(2015, 7, 10))
+        record3 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                            time_start=datetime.datetime(2015, 9, 22))
+        record4 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                            time_start=datetime.datetime(2015, 9, 24))
+        record5 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                            time_start=datetime.datetime(2015, 9, 26))
+
+        week1 = {
+            'start_date': datetime.date(2015, 7, 6),
+            'end_date': datetime.date(2015, 7, 12),
+            'records': [
+                record1,
+                record2,
+            ]
+        }
+        week2 = {
+            'start_date': datetime.date(2015, 9, 21),
+            'end_date': datetime.date(2015, 9, 27),
+            'records': [
+                record3,
+                record4,
+                record5,
+            ]
+        }
+
+        weekly_records = self.user.gitlabauthorisation.weekly_time_spent_records
+        for week in weekly_records:
+            if week['start_date'] == week1['start_date'] and week['end_date'] == week1['end_date']:
+                found_week1 = True
+                self.assertEqual(week['records'].count(), 2)
+                for record in week1['records']:
+                    self.assertIn(record, week['records'])
+            elif week['start_date'] == week2['start_date'] and week['end_date'] == week2['end_date']:
+                found_week2 = True
+                self.assertEqual(week['records'].count(), 3)
+                for record in week2['records']:
+                    self.assertIn(record, week['records'])
+
+        self.assertTrue(found_week1)
+        self.assertTrue(found_week2)
+
+        weeks_passed = math.ceil((timezone.now().date() - datetime.date(2015, 7, 6)).days/7)
+        self.assertEqual(len(weekly_records), weeks_passed)

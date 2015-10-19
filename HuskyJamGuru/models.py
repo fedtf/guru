@@ -100,12 +100,25 @@ class GitlabAuthorisation(models.Model):
 
     @property
     def weekly_time_spent_records(self):
-        first_record = self.user.issues_time_spent_records.last()
-        monday_of_first_week = first_record.time_start.date() - \
-            datetime.timedelta(days=first_record.time_start.weekday())
-        for i in range((timezone.now().date() - monday_of_first_week).days, 0, 7):
-            date_start = datetime.date(monday_of_first_week + datetime.timedelta(days=i))
-            print(date_start)
+        weekly_records = []
+        records = self.user.issues_time_spent_records.all()
+
+        earliest_record = records.last()
+        monday_of_first_week = earliest_record.time_start.date() - \
+            datetime.timedelta(days=earliest_record.time_start.weekday())
+        for i in range(0, (timezone.now().date() - monday_of_first_week).days + 1, 7):
+            start_date = monday_of_first_week + datetime.timedelta(days=i)
+            end_date = start_date + datetime.timedelta(days=6)
+            week_records = records.filter(time_start__gte=start_date).filter(time_start__lte=end_date)
+
+            week = {}
+            week['start_date'] = start_date
+            week['end_date'] = end_date
+            week['records'] = week_records
+            weekly_records.append(week)
+
+        return weekly_records
+
 
     @property
     def current_issue(self):

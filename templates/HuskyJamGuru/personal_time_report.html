@@ -3,11 +3,11 @@
 
 {% block preload %}
     <style>
-        #issues-heading {
+        #issues-heading, #calendar-heading {
             border-bottom: 1px solid #fff;  
             padding:10px 0;
         }
-        #issues-container {
+        #issues-container, #calendar-container {
             border: 1px solid #fff;
             padding: 0;
         }
@@ -17,6 +17,39 @@
         }
         .username-header {
             margin:17px 0 13px;
+        }
+        .week-header {
+            margin-top: 20px;
+        }
+        .week {
+            position: relative;
+            height:360px;
+            margin-top: 45px;
+        }
+        .week .hours {
+            position: absolute;
+            height: 100%;
+            z-index: 10;
+            right:107%;
+            top: -10px;
+        }
+        .week .hours .hour {
+            position: absolute;
+        }
+        #hour1 { top:0; }
+        #hour6 { top:90px; }
+        #hour12 { top:180px; }
+        #hour18 { top:270px; }
+        #hour24 { top:360px; }
+        .week .day {
+            width: 13%;
+            height:100%;
+            margin: 0 4px;
+            background:grey;
+        }
+        .week .day .day-header {
+            position: relative;
+            bottom: 40px;
         }
     </style>
 {% endblock %}
@@ -71,9 +104,9 @@
                             </div>
                             <div class="col-lg-7">
                                 <small>
-                                    Start: {{ time_record.time_start|date:"Y-j-n G:i" }}<br/>
+                                    Start: {{ time_record.time_start|date:"Y-n-j G:i" }}<br/>
                                     {% if time_record.time_stop %}
-                                    Stop: {{ time_record.time_stop|date:"Y-j-n G:i" }}
+                                    Stop: {{ time_record.time_stop|date:"Y-n-j G:i" }}
                                     {% endif %}
                                 </small>
                             </div>
@@ -93,26 +126,117 @@
                 {% endfor %}
             </div>
         </div>
+        <div id="calendar-container" class="col-lg-9">
+            <div id="calendar-heading" class="text-center col-lg-12">
+                <small>Time History</small>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="calendar-for-copying" style="display:none">
+    <div class="week-container text-center col-lg-11 col-lg-offset-1">
+        <h4 class="week-header"></h4>
+        <div class="week">
+            <div class="hours">
+                <div id="hour0" class="hour">00:00</div>
+                <div id="hour6" class="hour">6:00</div>
+                <div id="hour12" class="hour">12:00</div>
+                <div id="hour18" class="hour">18:00</div>
+                <div id="hour24" class="hour">24:00</div>
+            </div>
+            <div class="col-lg-1 day Monday">
+                <h5 class="day-header">Monday</h5>
+            </div>
+            <div class="col-lg-1 day Tuesday">
+                <h5 class="day-header">Tuesday</h5>
+            </div>
+            <div class="col-lg-1 day Wednesday">
+                <h5 class="day-header">Wednesday</h5>
+            </div>
+            <div class="col-lg-1 day Thursday">
+                <h5 class="day-header">Thursday</h5>
+            </div>
+            <div class="col-lg-1 day Friday">
+                <h5 class="day-header">Friday</h5>
+            </div>
+            <div class="col-lg-1 day Saturday">
+                <h5 class="day-header">Saturday</h5>
+            </div>
+            <div class="col-lg-1 day Sunday">
+                <h5 class="day-header">Sunday</h5>
+            </div>
+        </div>
     </div>
 </div>
     <script>
         $(function() {
             $('#issues-container').outerHeight($(window).height() - $('.navbar').outerHeight() - parseInt($('.navbar').css('marginBottom')) - 
-                $('.username-header').outerHeight() - parseInt($('.username-header').css('marginBottom')) - $(window).height()/10);
+                $('.username-header').outerHeight() - parseInt($('.username-header').css('marginBottom')) - $(window).height()/25);
             $('#issues-panel').outerHeight($('#issues-container').height() - $('#issues-heading').outerHeight());
+            
+            for (var i = 0; i < time_spent_records.length; i++) {
+                week = time_spent_records[i];    
+                var weekCalendar = new Calendar(week);
+                $('#calendar-container').append(weekCalendar.getElement());
+            }
         })
     
     var time_spent_records = [
-        {% for week in weekly_time_spent_records %}
-            startDate = {{ week.start_date }},
-            endDate = {{ week.end_date }},
-            time_spent_records = [
-                {% for record in week.time_spent_records %}
-                    startTime: {{ record.start_time }},
+        {% for week in report_user.gitlabauthorisation.weekly_time_spent_records %}
+        {
+            startDate: new Date({{ week.start_date|date:"Y, n-1, j" }}),
+            endDate: new Date({{ week.end_date|date:"Y, n-1, j" }}),
+            records: [
+                {% for record in week.records %}
+                {
+                    startTime: new Date({{ record.time_start|date:"Y, n-1, j" }}),
                     duration: {{ record.seconds|divide:"60" }}, 
+                    issue: '{{ record.gitlab_issue.name }}',
+                },
                 {% endfor %}
             ],
+        },
         {% endfor %}
     ]
+
+    function Calendar(week) {
+        this.startDate = week.startDate;
+        this.endDate = week.endDate;
+        this.records = week.records;
+        var self = this;
+
+        function render() {
+            var totalMinutes = 0;
+
+            for (var i = 0; i < self.records.length; i++) {
+                record = self.records[i];
+                totalMinutes += record.duration;
+            }
+
+            var hours = Math.floor(totalMinutes/60);
+            var minutes = totalMinutes - hours*60;
+
+            var summary = hours + ':' + minutes;
+
+            var weekContainer = $('#calendar-for-copying').children().first().clone();
+            weekContainer.find('.week-header').text(self.startDate.getDate() + '.' + (self.startDate.getMonth()+1) + ' - ' +
+                    + self.endDate.getDate() + '.' + (self.endDate.getMonth()+1) + ' (Summary: ' + summary + ')');
+
+            var weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+            for (var j = 0; j < self.records.length; j++) {
+                var record = self.records[j];
+                var week = weekContainer.find('.week');
+                week.find('.' + weekDays[record.startTime.getDay()]).append($('<div class="time-spent">').text(record.duration + ' '+ record.issue));
+            }
+
+            return weekContainer;
+        }
+
+        this.getElement = function() {
+            var elem = render();
+            return elem;
+        }
+    }
     </script>
 {% endblock %}
