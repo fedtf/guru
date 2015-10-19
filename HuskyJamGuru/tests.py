@@ -548,15 +548,15 @@ class PersonalTimeReportTest(TestCase):
                                            gitlab_issue_iid=6,
                                            gitlab_project=self.project.gitlab_projects.first())
         record1 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                            time_start=datetime.datetime(2015, 7, 8))
+                                                      time_start=datetime.datetime(2015, 7, 8))
         record2 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                            time_start=datetime.datetime(2015, 7, 10))
+                                                      time_start=datetime.datetime(2015, 7, 10))
         record3 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                            time_start=datetime.datetime(2015, 9, 22))
+                                                      time_start=datetime.datetime(2015, 9, 22))
         record4 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                            time_start=datetime.datetime(2015, 9, 24))
+                                                      time_start=datetime.datetime(2015, 9, 24))
         record5 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                            time_start=datetime.datetime(2015, 9, 26))
+                                                      time_start=datetime.datetime(2015, 9, 26))
 
         week1 = {
             'start_date': datetime.date(2015, 7, 6),
@@ -592,5 +592,5 @@ class PersonalTimeReportTest(TestCase):
         self.assertTrue(found_week1)
         self.assertTrue(found_week2)
 
-        weeks_passed = math.ceil((timezone.now().date() - datetime.date(2015, 7, 6)).days/7)
+        weeks_passed = math.ceil((timezone.now().date() - datetime.date(2015, 7, 6)).days / 7)
         self.assertEqual(len(weekly_records), weeks_passed)

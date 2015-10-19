@@ -3,9 +3,27 @@ import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
 from django.core.urlresolvers import reverse
+from requests_oauthlib import OAuth2Session
+
+
+class GitlabModelMixin(object):
+    gitlab = OAuth2Session(settings.GITLAB_APPLICATION_ID,
+                           get_user_model().objects.filter(is_superuser=True).first()
+                           .gitlabauthorisation.token.replace("'", '"'))
+    model_name = ''
+
+    def pull_from_gitlab(self):
+        return self.gitlab.get('{}/api/v3/{}'.format(settings.GITLAB_URL, self.model_name))
+
+    def push_to_gitlab(self, push_data, type='update', item_id=0):
+        if type == 'update':
+            self.gitlab.put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, self.model_name, item_id), push_data)
+        elif type == 'create':
+            self.gitlab.post('{}/api/v3/{}'.format(settings.GITLAB_URL, self.model_name), push_data)
 
 
 class Project(models.Model):
@@ -118,7 +136,6 @@ class GitlabAuthorisation(models.Model):
             weekly_records.append(week)
 
         return weekly_records
-
 
     @property
     def current_issue(self):
