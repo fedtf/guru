@@ -48,7 +48,7 @@ class ProjectListView(ListView):
 
 
 def synchronise_with_gitlab(request):
-    load_new_and_update_existing_projects_from_gitlab(request)
+    load_new_and_update_existing_projects_from_gitlab()
     return HttpResponse()
 
 

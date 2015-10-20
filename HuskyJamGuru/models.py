@@ -1,4 +1,5 @@
 import datetime
+import json
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -15,28 +16,32 @@ from requests_oauthlib import OAuth2Session
 class GitlabSynchronizeMixin(object):
     gitlab_model_name = ''
 
-    @property
-    def gitlab(self):
-        if self.gitlab_model_name not in ['project', 'milestone', 'issue']:
+    @classmethod
+    def gitlab(cls):
+        if cls.gitlab_model_name not in ('projects', 'milestones', 'issues'):
             raise ImproperlyConfigured("'GitlabSynchronizeMixin' requires valid gitlab_model_name.")
 
+        superuser = get_user_model().objects.filter(is_superuser=True).first()
         return OAuth2Session(settings.GITLAB_APPLICATION_ID,
-                             get_user_model().objects.filter(is_superuser=True).first()
-                             .gitlabauthorisation.token.replace("'", '"'))
+                             token=json.loads(superuser.gitlabauthorisation.token.replace("'", '"')))
 
-    @staticmethod
-    def pull_from_gitlab(self):
-        return self.gitlab.get('{}/api/v3/{}'.format(settings.GITLAB_URL, self.gitlab_model_name))
+    @classmethod
+    def pull_from_gitlab(cls):
+        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name))
+        if response.status_code == 200:
+            return json.loads(response.content.decode('utf-8'))
+        else:
+            return None
 
-    @staticmethod
-    def push_to_gitlab(self, push_data, type='update', item_id=-1):
+    @classmethod
+    def push_to_gitlab(cls, push_data, type='update', item_id=-1):
         if type == 'update':
             if item_id < 0:
                 raise ImproperlyConfigured("Update requires valid item_id")
 
-            self.gitlab.put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, self.gitlab_model_name, item_id), push_data)
+            resp = cls.gitlab().put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name, item_id), push_data)
         elif type == 'create':
-            self.gitlab.post('{}/api/v3/{}'.format(settings.GITLAB_URL, self.gitlab_model_name), push_data)
+            cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name), push_data)
 
 
 class Project(models.Model):
@@ -175,15 +180,15 @@ class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
 
     gitlab_model_name = 'projects'
 
-    @staticmethod
-    def pull_from_gitlab(self):
-        projects = super(self, GitlabProject).pull_from_gitlab(self)
+    @classmethod
+    def pull_from_gitlab(cls):
+        projects = super(GitlabProject, cls).pull_from_gitlab()
         for project in projects:
             gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
-            gitlab_project.name = pulled_data['name']
-            gitlab_project.path_with_namespace = pulled_data['path_with_namespace']
-            gitlab_project.name_with_namespace = pulled_data['name_with_namespace']
-            gitlab_project.creation_time = pulled_data['created_at']
+            gitlab_project.name = project['name']
+            gitlab_project.path_with_namespace = project['path_with_namespace']
+            gitlab_project.name_with_namespace = project['name_with_namespace']
+            gitlab_project.creation_time = project['created_at']
             gitlab_project.save()
 
     @property
@@ -217,21 +222,24 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
                 self.priority = 1
         super(GitLabMilestone, self).save(*args, **kwargs)
 
-    @staticmethod
-    def pull_from_gitlab(self):
-        for project in GitlabProject.objects.all():
+    @classmethod
+    def pull_from_gitlab(cls):
+        for gitlab_project in GitlabProject.objects.all():
             # No api endpoint for getting all milestones without projects.
-            milestones = self.gitlab.get('{}/api/v3/projects/{}/{}'.format(settings.GITLAB_URL,
-                                                                           project.gitlab_id,
-                                                                           self.gitlab_model_name))
-            for milestone in milestones:
-                gitlab_milestone = GitLabMilestone.objects.get_or_create(
-                    gitlab_milestone_id=milestone['id'],
-                    gitlab_milestone_iid=milestone['iid'],
-                )[0]
-                gitlab_milestone.name = milestone['title']
-                gitlab_milestone.closed = milestone['state'] != 'active'
-                gitlab_milestone.save()
+            response = cls.gitlab().get('{}/api/v3/projects/{}/{}'.format(settings.GITLAB_URL,
+                                                                          gitlab_project.gitlab_id,
+                                                                          cls.gitlab_model_name))
+            if response.status_code == 200:
+                milestones = json.loads(response.content.decode('utf-8'))
+                for milestone in milestones:
+                    gitlab_milestone = GitLabMilestone.objects.get_or_create(
+                        gitlab_milestone_id=milestone['id'],
+                        gitlab_milestone_iid=milestone['iid'],
+                        gitlab_project = gitlab_project
+                    )[0]
+                    gitlab_milestone.name = milestone['title']
+                    gitlab_milestone.closed = milestone['state'] != 'active'
+                    gitlab_milestone.save()
 
     @property
     def create_issue_link(self):
@@ -265,13 +273,15 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
     def __str__(self):
         return self.name
 
-    @staticmethod
-    def pull_from_gitlab(self):
-        issues = super(self, GitLabIssue).pull_from_gitlab(self)
+    @classmethod
+    def pull_from_gitlab(cls):
+        issues = super(GitLabIssue, cls).pull_from_gitlab()
+        print(issues)
         for issue in issues:
             gitlab_issue = GitLabIssue.objects.get_or_create(
                 gitlab_issue_iid=issue['iid'],
                 gitlab_issue_id=issue['id'],
+                gitlab_project=GitlabProject.objects.get(gitlab_id=issue['project_id'])
             )[0]
             gitlab_issue.name = issue['title']
             if issue['milestone'] is not None:
@@ -288,10 +298,14 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
             else:
                 gitlab_issue.assignee = None
             gitlab_issue.description = issue['description']
-            gitlab_issue.gitlab_issue_iid = issue['iid']
             gitlab_issue.updated_at = issue['updated_at']
-            gitlab_issue.project = gitlab_project
             gitlab_issue.save()
+
+    def reassign_to_user(self, user):
+        data = {
+            'assignee_id': user.gitlabauthorisation.gitlab_user_id
+        }
+        GitLabIssue.push_to_gitlab(push_data=data, item_id=self.gitlab_issue_id)
 
     @property
     def current_type(self):

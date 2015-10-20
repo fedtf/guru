@@ -36,7 +36,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                         project_id=type_update.gitlab_issue.gitlab_project.project
                     )
                     new_update.save()
-            reassign_issue(request, issue, request.user.gitlabauthorisation)
+            issue.reassign_to_user(request.user)
         request.data['project'] = issue.gitlab_project.project.pk
         return super(self.__class__, self).create(request, *args, **kwargs)
 
