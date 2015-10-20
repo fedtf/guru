@@ -2,7 +2,6 @@ from rest_framework import viewsets
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
-from Project.gitlab import reassign_issue
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):

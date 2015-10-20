@@ -1,14 +1,13 @@
 import datetime
 import json
 
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ImproperlyConfigured
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
 from django.core.urlresolvers import reverse
-from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 
 from requests_oauthlib import OAuth2Session
 
@@ -39,7 +38,7 @@ class GitlabSynchronizeMixin(object):
             if item_id < 0:
                 raise ImproperlyConfigured("Update requires valid item_id")
 
-            resp = cls.gitlab().put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name, item_id), push_data)
+            cls.gitlab().put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name, item_id), push_data)
         elif type == 'create':
             cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name), push_data)
 
@@ -235,7 +234,7 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
                     gitlab_milestone = GitLabMilestone.objects.get_or_create(
                         gitlab_milestone_id=milestone['id'],
                         gitlab_milestone_iid=milestone['iid'],
-                        gitlab_project = gitlab_project
+                        gitlab_project=gitlab_project
                     )[0]
                     gitlab_milestone.name = milestone['title']
                     gitlab_milestone.closed = milestone['state'] != 'active'
@@ -276,7 +275,6 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
     @classmethod
     def pull_from_gitlab(cls):
         issues = super(GitLabIssue, cls).pull_from_gitlab()
-        print(issues)
         for issue in issues:
             gitlab_issue = GitLabIssue.objects.get_or_create(
                 gitlab_issue_iid=issue['iid'],
