@@ -1,7 +1,7 @@
 import datetime
 import json
 
-from django.core.exceptions import ObjectDoesNotExist, ImproperlyConfigured
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
@@ -13,34 +13,26 @@ from requests_oauthlib import OAuth2Session
 
 
 class GitlabSynchronizeMixin(object):
-    gitlab_model_name = ''
-
     @classmethod
     def gitlab(cls):
-        if cls.gitlab_model_name not in ('projects', 'milestones', 'issues'):
-            raise ImproperlyConfigured("'GitlabSynchronizeMixin' requires valid gitlab_model_name.")
-
         superuser = get_user_model().objects.filter(is_superuser=True).first()
         return OAuth2Session(settings.GITLAB_APPLICATION_ID,
                              token=json.loads(superuser.gitlabauthorisation.token.replace("'", '"')))
 
     @classmethod
-    def pull_from_gitlab(cls):
-        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name))
+    def pull_from_gitlab(cls, gitlab_item_name):
+        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, gitlab_item_name))
         if response.status_code == 200:
             return json.loads(response.content.decode('utf-8'))
         else:
             return None
 
     @classmethod
-    def push_to_gitlab(cls, push_data, type='update', item_id=-1):
+    def push_to_gitlab(cls, request_path, push_data, type='update'):
         if type == 'update':
-            if item_id < 0:
-                raise ImproperlyConfigured("Update requires valid item_id")
-
-            cls.gitlab().put('{}/api/v3/{}/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name, item_id), push_data)
+            return cls.gitlab().put('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path), push_data)
         elif type == 'create':
-            cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, cls.gitlab_model_name), push_data)
+            return cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path), push_data)
 
 
 class Project(models.Model):
@@ -121,7 +113,7 @@ class GitlabAuthorisation(models.Model):
     @property
     def user_projects_issues_statistics(self):
         # Returns the dictionary with the numbers of
-        # all open and open and unassigned issues
+        # all open and (open and unassigned) issues
         # in all projects that user has access to.
         user_projects_issues_statistics = {'open': 0, 'unassigned': 0}
 
@@ -177,11 +169,9 @@ class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
     project = models.ForeignKey('Project', related_name='gitlab_projects', null=True, blank=True)
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
 
-    gitlab_model_name = 'projects'
-
     @classmethod
     def pull_from_gitlab(cls):
-        projects = super(GitlabProject, cls).pull_from_gitlab()
+        projects = super(GitlabProject, cls).pull_from_gitlab('projects')
         for project in projects:
             gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
             gitlab_project.name = project['name']
@@ -210,8 +200,6 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
     closed = models.BooleanField(default=False)
     priority = models.IntegerField(editable=False)
 
-    gitlab_model_name = 'milestones'
-
     def save(self, *args, **kwargs):
         if self.pk is None:
             last_milestone = self.gitlab_project.gitlab_milestones.last()
@@ -225,9 +213,8 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
     def pull_from_gitlab(cls):
         for gitlab_project in GitlabProject.objects.all():
             # No api endpoint for getting all milestones without projects.
-            response = cls.gitlab().get('{}/api/v3/projects/{}/{}'.format(settings.GITLAB_URL,
-                                                                          gitlab_project.gitlab_id,
-                                                                          cls.gitlab_model_name))
+            response = cls.gitlab().get('{}/api/v3/projects/{}/milestones'.format(settings.GITLAB_URL,
+                                                                                  gitlab_project.gitlab_id))
             if response.status_code == 200:
                 milestones = json.loads(response.content.decode('utf-8'))
                 for milestone in milestones:
@@ -267,14 +254,12 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
     updated_at = models.DateTimeField(null=True, blank=True)
     assignee = models.ForeignKey('GitlabAuthorisation', unique=False, blank=True, null=True)
 
-    gitlab_model_name = 'issues'
-
     def __str__(self):
         return self.name
 
     @classmethod
     def pull_from_gitlab(cls):
-        issues = super(GitLabIssue, cls).pull_from_gitlab()
+        issues = super(GitLabIssue, cls).pull_from_gitlab('issues')
         for issue in issues:
             gitlab_issue = GitLabIssue.objects.get_or_create(
                 gitlab_issue_iid=issue['iid'],
@@ -301,9 +286,17 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
 
     def reassign_to_user(self, user):
         data = {
-            'assignee_id': user.gitlabauthorisation.gitlab_user_id
+            'assignee_id': user.gitlabauthorisation.gitlab_user_id,
         }
-        GitLabIssue.push_to_gitlab(push_data=data, item_id=self.gitlab_issue_id)
+        GitLabIssue.push_to_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                  self.gitlab_issue_id,), data)
+
+    def change_state_in_gitlab(self, new_state):
+        data = {
+            'state_event': new_state,
+        }
+        GitLabIssue.push_to_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                  self.gitlab_issue_id,), data)
 
     @property
     def current_type(self):
