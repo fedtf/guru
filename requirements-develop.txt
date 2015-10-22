@@ -6,3 +6,5 @@ requests_oauthlib
 djangorestframework
 django-debug-toolbar
 django-braces
+celery
+django-celery

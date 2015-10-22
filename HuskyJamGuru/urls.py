@@ -2,7 +2,7 @@ from django.conf.urls import url, include
 
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
     synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
-    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix
+    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView
 
 
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^personal-time-report/(?P<pk>\d+)/$', PersonalTimeReportView.as_view(), name='personal-time-report'),
     url(r'^sort-milestones$', SortMilestonesView.as_view(), name='sort-milestones'),
     url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
+    url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),
     url(
         r'^issue-time-assessment-create/(?P<issue_pk>\d+)/$',
         IssueTimeAssessmentCreate.as_view(),

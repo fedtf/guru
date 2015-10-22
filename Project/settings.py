@@ -44,6 +44,8 @@ INSTALLED_APPS = (
     'HuskyJamGuru',
     'rest_framework',
     'debug_toolbar',
+    'kombu.transport.django',
+    'djcelery',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -90,6 +92,8 @@ DATABASES = {
     }
 }
 
+CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
+BROKER_URL = 'django://'
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/

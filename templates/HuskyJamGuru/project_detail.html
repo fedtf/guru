@@ -38,6 +38,9 @@
                     <small>Project report</small>
                 </a>
             {% endif %}
+            <a href="{% url 'HuskyJamGuru:update-item-from-gitlab' %}?item_name=project&item_pk={{ project.pk }}" 
+                class="glyphicon glyphicon-refresh pull-right">
+            </a>
         </div>
         <div class="row" id="columns-header">
             {% for type_tuple in project.issues_types_tuple %}
@@ -58,6 +61,9 @@
                 <a target="_blank" href="{{ gitlab_project.create_milestone_link }}">
                     <span class="glyphicon glyphicon-plus"></span>
                 </a>
+                <a href="{% url 'HuskyJamGuru:update-item-from-gitlab' %}?item_name=gitlab_project&item_pk={{ gitlab_project.pk }}" 
+                    class="glyphicon glyphicon-refresh">
+                </a>
                 <br><br>
                 <div id="{{ gitlab_project.pk }}" class="project-milestones">
                     {% for milestone in gitlab_project.gitlab_opened_milestones %}
@@ -69,6 +75,9 @@
                                 <span {% if milestone.priority == gitlab_project.gitlab_opened_milestones.count %}style="display:none"{% endif %}
                                     class="milestone_down glyphicon glyphicon-arrow-down"></span>
                             {% endif %}
+                            <a href="{% url 'HuskyJamGuru:update-item-from-gitlab' %}?item_name=milestone&item_pk={{ milestone.pk }}" 
+                                class="glyphicon glyphicon-refresh">
+                            </a>
                             <a target="_blank" href="{{ milestone.create_issue_link }}">
                                 <span class="glyphicon glyphicon-plus pull-right"></span>
                             </a>
@@ -292,6 +301,8 @@
                     } else {
                         existPanel.remove();
                         panel = $("#panel-for-copying").children().clone();
+                        var updateFromGitlabButton = $('<a class="glyphicon glyphicon-refresh" href="{% url "HuskyJamGuru:update-item-from-gitlab" %}?item_name=issue&item_pk=' + issues[i].pk + '">')
+                        panel.find('.panel-heading').append(updateFromGitlabButton);
                         panel.appendTo(targetPlaceForPanel);
                     }
                     panel.find(".issue-name").text(issues[i].name);

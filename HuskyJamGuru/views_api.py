@@ -38,7 +38,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
             issue.reassign_to_user(request.user)
         if request.data['type'] == 'verified':
             issue.change_state_in_gitlab('close')
-        else:
+        elif issue.current_type.type == 'verified':
             issue.change_state_in_gitlab('reopen')
         request.data['project'] = issue.gitlab_project.project.pk
         return super(self.__class__, self).create(request, *args, **kwargs)

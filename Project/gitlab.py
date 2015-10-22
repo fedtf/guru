@@ -1,3 +1,5 @@
+import json
+
 from requests_oauthlib import OAuth2Session
 from django.contrib.auth import login as django_login
 from django.contrib.auth.models import User
@@ -6,7 +8,7 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.conf import settings
 
-import json
+from celery import shared_task
 
 from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilestone, GitLabIssue
 
@@ -70,6 +72,7 @@ def reassign_issue(request, issue, gitlab_user):
     ).content.decode("utf-8")
 
 
+@shared_task
 def load_new_and_update_existing_projects_from_gitlab():
     GitlabProject.pull_from_gitlab()
     GitLabMilestone.pull_from_gitlab()

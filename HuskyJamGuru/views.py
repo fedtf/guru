@@ -4,13 +4,13 @@ from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 
 from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
-    GitLabMilestone
+    GitLabMilestone, GitlabProject
 
 
 def milestones_fix(request):
@@ -45,6 +45,35 @@ class ProjectListView(ListView):
     def get_context_data(self, **kwargs):
         context = super(ProjectListView, self).get_context_data(**kwargs)
         return context
+
+
+class UpdateItemFromGitlabView(braces_views.LoginRequiredMixin,
+                               View):
+    def get(self, request):
+        item_name = request.GET.get('item_name')
+        item_pk = request.GET.get('item_pk')
+
+        item = False
+
+        if item_name == 'project':
+            item = Project.objects.get(pk=item_pk)
+            project_pk = item_pk
+        elif item_name == 'gitlab_project':
+            item = GitlabProject.objects.get(pk=item_pk)
+            project_pk = item.project.pk
+        elif item_name == 'milestone':
+            item = GitLabMilestone.objects.get(pk=item_pk)
+            project_pk = item.gitlab_project.project.pk
+        elif item_name == 'issue':
+            item = GitLabIssue.objects.get(pk=item_pk)
+            project_pk = item.gitlab_project.project.pk
+
+        if not item:
+            return redirect(reverse_lazy('HuskyJamGuru:project-list'))
+
+        item.update_from_gitlab()
+
+        return redirect(reverse_lazy('HuskyJamGuru:project-detail', kwargs={'pk': project_pk}))
 
 
 def synchronise_with_gitlab(request):
@@ -103,7 +132,7 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
     raise_exception = True
 
     def get(self, request):
-        return render(reverse_lazy('project-list'))
+        return redirect(reverse_lazy('project-list'))
 
     def post(self, request, *args, **kwargs):
         milestone_id = request.POST.get('milestone_id')

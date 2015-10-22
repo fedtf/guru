@@ -20,10 +20,13 @@ class GitlabSynchronizeMixin(object):
                              token=json.loads(superuser.gitlabauthorisation.token.replace("'", '"')))
 
     @classmethod
-    def pull_from_gitlab(cls, gitlab_item_name):
-        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, gitlab_item_name))
+    def pull_from_gitlab(cls, request_path):
+        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path))
         if response.status_code == 200:
-            return json.loads(response.content.decode('utf-8'))
+            data = json.loads(response.content.decode('utf-8'))
+            if type(data) != list:
+                data = [data]
+            return data
         else:
             return None
 
@@ -40,6 +43,10 @@ class Project(models.Model):
     creation_date = models.DateField()
     finish_date_assessment = models.DateField()
     issues_types = models.TextField(default='open, in progress, fixed, verified')
+
+    def update_from_gitlab(self):
+        for gitlab_project in self.gitlab_projects.all():
+            gitlab_project.update_from_gitlab()
 
     @property
     def issues(self):
@@ -170,8 +177,8 @@ class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
 
     @classmethod
-    def pull_from_gitlab(cls):
-        projects = super(GitlabProject, cls).pull_from_gitlab('projects')
+    def pull_from_gitlab(cls, request_path='projects'):
+        projects = super(GitlabProject, cls).pull_from_gitlab(request_path)
         for project in projects:
             gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
             gitlab_project.name = project['name']
@@ -179,6 +186,11 @@ class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
             gitlab_project.name_with_namespace = project['name_with_namespace']
             gitlab_project.creation_time = project['created_at']
             gitlab_project.save()
+
+    def update_from_gitlab(self):
+        GitlabProject.pull_from_gitlab('projects/{}'.format(self.gitlab_id))
+        GitLabMilestone.pull_from_gitlab('projects/{}/milestones'.format(self.gitlab_id))
+        GitLabIssue.pull_from_gitlab('projects/{}/issues'.format(self.gitlab_id))
 
     @property
     def gitlab_opened_milestones(self):
@@ -210,22 +222,31 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
         super(GitLabMilestone, self).save(*args, **kwargs)
 
     @classmethod
-    def pull_from_gitlab(cls):
-        for gitlab_project in GitlabProject.objects.all():
-            # No api endpoint for getting all milestones without projects.
-            response = cls.gitlab().get('{}/api/v3/projects/{}/milestones'.format(settings.GITLAB_URL,
-                                                                                  gitlab_project.gitlab_id))
-            if response.status_code == 200:
-                milestones = json.loads(response.content.decode('utf-8'))
-                for milestone in milestones:
-                    gitlab_milestone = GitLabMilestone.objects.get_or_create(
-                        gitlab_milestone_id=milestone['id'],
-                        gitlab_milestone_iid=milestone['iid'],
-                        gitlab_project=gitlab_project
-                    )[0]
-                    gitlab_milestone.name = milestone['title']
-                    gitlab_milestone.closed = milestone['state'] != 'active'
-                    gitlab_milestone.save()
+    def pull_from_gitlab(cls, request_path='milestones'):
+        if request_path == 'milestones':
+            for gitlab_project in GitlabProject.objects.all():
+                # No api endpoint for getting all milestones without projects.
+                milestones = super(GitLabMilestone, cls).pull_from_gitlab('projects/{}/milestones'
+                                                                          .format(gitlab_project.gitlab_id))
+        else:
+            milestones = super(GitLabMilestone, cls).pull_from_gitlab(request_path)
+        for milestone in milestones:
+            gitlab_milestone = GitLabMilestone.objects.get_or_create(
+                gitlab_milestone_id=milestone['id'],
+                gitlab_milestone_iid=milestone['iid'],
+                gitlab_project=GitlabProject.objects.get(gitlab_id=milestone['project_id'])
+            )[0]
+            gitlab_milestone.name = milestone['title']
+            gitlab_milestone.closed = milestone['state'] != 'active'
+            gitlab_milestone.save()
+
+    def update_from_gitlab(self):
+        GitLabMilestone.pull_from_gitlab('projects/{}/milestones/{}'
+                                         .format(self.gitlab_project.gitlab_id,
+                                                 self.gitlab_milestone_id))
+        GitLabIssue.pull_from_gitlab('projects/{}/issues?milestone={}'
+                                     .format(self.gitlab_project.gitlab_id,
+                                             self.name))
 
     @property
     def create_issue_link(self):
@@ -258,8 +279,8 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
         return self.name
 
     @classmethod
-    def pull_from_gitlab(cls):
-        issues = super(GitLabIssue, cls).pull_from_gitlab('issues')
+    def pull_from_gitlab(cls, request_path='issues'):
+        issues = super(GitLabIssue, cls).pull_from_gitlab(request_path)
         for issue in issues:
             gitlab_issue = GitLabIssue.objects.get_or_create(
                 gitlab_issue_iid=issue['iid'],
@@ -283,6 +304,10 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
             gitlab_issue.description = issue['description']
             gitlab_issue.updated_at = issue['updated_at']
             gitlab_issue.save()
+
+    def update_from_gitlab(self):
+        GitLabIssue.pull_from_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                    self.gitlab_issue_id))
 
     def reassign_to_user(self, user):
         data = {
