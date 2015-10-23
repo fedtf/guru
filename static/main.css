@@ -8,7 +8,7 @@ body {
 }
 
 .dropable {
-	min-height: 100px;
+	min-height: 100%;
 }
 
 .drop-row {
@@ -25,4 +25,8 @@ body {
 .panel-heading a {
     color: #ffffff;
     text-decoration: underline;
+}
+
+.milestone {
+    display: flex;
 }

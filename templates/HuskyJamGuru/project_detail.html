@@ -3,12 +3,12 @@
 
 {% block preload %}
     <style>
-    .milestone_up, .milestone_down {
-        cursor:pointer;
-    }
-    .head-links a {
-        padding: 0 20px;
-    }
+        .milestone_up, .milestone_down {
+            cursor:pointer;
+        }
+        .head-links a {
+            padding: 0 20px;
+        }
     </style>
 {% endblock %}
 
@@ -33,8 +33,8 @@
                 </a>
             {% endif %}
             {% if 'manager' in user_to_project_accesses %}
-                <a href="{% url 'HuskyJamGuru:project-report' project.pk %}" 
-                    class="report-list pull-right">
+                <a href="{% url 'HuskyJamGuru:project-report' project.pk %}"
+                   class="report-list pull-right">
                     <small>Project report</small>
                 </a>
             {% endif %}
@@ -63,23 +63,23 @@
                     {% for milestone in gitlab_project.gitlab_opened_milestones %}
                         <div id="{{ milestone.pk }}" class="panel panel-default milestone-panel">
                             <div class="panel-heading"><a target="_blank" class="milestone-link" href ="{% settings_value "GITLAB_URL" %}/{{ gitlab_project.path_with_namespace }}/milestones/{{ milestone.gitlab_milestone_iid }}"> {{ milestone.name }}</a>
-                            {% if user.is_superuser %}
-                                <span {% if milestone.priority == 1 %}style="display:none"{% endif %} 
-                                    class="milestone_up glyphicon glyphicon-arrow-up"></span>
-                                <span {% if milestone.priority == gitlab_project.gitlab_opened_milestones.count %}style="display:none"{% endif %}
-                                    class="milestone_down glyphicon glyphicon-arrow-down"></span>
-                            {% endif %}
-                            <a target="_blank" href="{{ milestone.create_issue_link }}">
-                                <span class="glyphicon glyphicon-plus pull-right"></span>
-                            </a>
+                                {% if user.is_superuser %}
+                                    <span {% if milestone.priority == 1 %}style="display:none"{% endif %}
+                                          class="milestone_up glyphicon glyphicon-arrow-up"></span>
+                                    <span {% if milestone.priority == gitlab_project.gitlab_opened_milestones.count %}style="display:none"{% endif %}
+                                          class="milestone_down glyphicon glyphicon-arrow-down"></span>
+                                {% endif %}
+                                <a target="_blank" href="{{ milestone.create_issue_link }}">
+                                    <span class="glyphicon glyphicon-plus pull-right"></span>
+                                </a>
                             </div>
                             <div class="panel-body milestone" milestone-id="{{ milestone.pk }}">
                                 {% for type_tuple in project.issues_types_tuple %}
-                                <div class="{% if show_unassigned_column %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
+                                    <div class="{% if show_unassigned_column %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
                                     {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %} drop-row">
-                                    <div class="col-lg-12 dropable {{ type_tuple|first }}-row">
+                                        <div class="col-lg-12 dropable {{ type_tuple|first }}-row">
+                                        </div>
                                     </div>
-                                </div>
                                 {% endfor %}
                                 {% if show_unassigned_column %}
                                     <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %} drop-row">
@@ -97,11 +97,11 @@
                             </div>
                             <div class="panel-body milestone">
                                 {% for type_tuple in project.issues_types_tuple %}
-                                <div class="{% if show_unassigned_column %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
+                                    <div class="{% if show_unassigned_column %}col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %}
                                     {% else %}col-lg-{% widthratio 12 project.issues_types_tuple|length 1 %}{% endif %} drop-row">
-                                    <div class="col-lg-12 undropable dropable {{ type_tuple|first }}-row">
+                                        <div class="col-lg-12 undropable dropable {{ type_tuple|first }}-row">
+                                        </div>
                                     </div>
-                                </div>
                                 {% endfor %}
                                 {% if show_unassigned_column %}
                                     <div class="col-lg-{% widthratio 12 project.issues_types_tuple|length|add:'1' 1 %} drop-row">
@@ -123,189 +123,209 @@
     </div>
 
     <script>
-        $(document).ready(function() {
-            updateTaskPositions();
-            enableSortable(); 
-            $('.milestone_up').on('click', function(e) {sortMilestiones('up', $(e.target).parents('.milestone-panel'))});
-            $('.milestone_down').on('click', function(e) {sortMilestiones('down', $(e.target).parents('.milestone-panel'))});
+    $(document).ready(function() {
+        updateTaskPositions();
+        enableSortable();
+        $('.milestone_up').on('click', function(e) {sortMilestiones('up', $(e.target).parents('.milestone-panel'))});
+        $('.milestone_down').on('click', function(e) {sortMilestiones('down', $(e.target).parents('.milestone-panel'))});
+    });
+
+    function sortMilestiones(direction, milestone) {
+        $.ajax({
+            url: "{% url 'HuskyJamGuru:sort-milestones' %}",
+            type: "POST",
+            data:{
+                milestone_id: $(milestone).attr('id'),
+                direction: direction,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(a, b) {
+                if (direction == 'up') {
+                    moveMilestoneUp(milestone);
+                } else {
+                    moveMilestoneDown(milestone);
+                }
+            }
+        });
+    };
+
+    function moveMilestoneUp(elem) {
+        if (elem.prevAll('.milestone-panel').length) {
+            elem.after(elem.prev());
+            if (elem.nextAll('.milestone-panel').length == 1) {
+                addArrow(elem, 'down');
+                removeArrow(elem.next(), 'down');
+            }
+            if (!elem.prevAll('.milestone-panel').length) {
+                removeArrow(elem, 'up');
+                addArrow(elem.next(), 'up');
+            }
+        }
+    }
+
+    function moveMilestoneDown(elem) {
+        if (elem.nextAll('.milestone-panel').length) {
+            elem.before(elem.next());
+            if (elem.prevAll('.milestone-panel').length == 1) {
+                addArrow(elem, 'up');
+                removeArrow(elem.prev(), 'up');
+            }
+            if (!elem.nextAll('.milestone-panel').length) {
+                removeArrow(elem, 'down');
+                addArrow(elem.prev(), 'down');
+            }
+
+        }
+    }
+
+    function removeArrow(elem, direction) {
+        elem.find('.milestone_' + direction).hide();
+    }
+
+    function addArrow(elem, direction) {
+        elem.find('.milestone_' + direction).show();
+    }
+
+    var updateIssueType = function(issuePk, newType){
+        $.ajax({
+            url: "/api/v1/IssueTypeUpdate/",
+            type: "POST",
+            data:{
+                type: newType,
+                gitlab_issue: issuePk
+            }
+        }).done(function( result ) {
+            console.log(result);
+        })
+    };
+
+    function enableSortable() {
+        $('.dropable').sortable({
+            connectWith: ".dropable",
+            revert: true,
+            cursor: 'move',
+            activeClass: "ui-state-hover",
+            cancel: ".undropable",
+            receive: function(event, ui){
+                if ($(event.target).hasClass('unassigned-row')) {
+                    return ui.sender.sortable("cancel");
+                }
+                var newType = 'open';
+                {% for type_tuple in project.issues_types_tuple %}
+                    if($(event.target).hasClass("{{ type_tuple|first }}-row")){
+                        newType = '{{ type_tuple|first }}';
+                    }
+                {% endfor %}
+                updateIssueType($(ui.item[0]).attr('issue-pk'), newType)
+            },
+            over: function( event, ui ) {
+                $(event.target).css("background-color","#3b3b3b");
+            },
+            out: function( event, ui ) {
+                $(event.target).css("background-color", "");
+            }
+        });
+    };
+
+    function updateTaskPositions() {
+        $.ajax({
+            url: "/api/v1/GitLabIssue/?project_pk={{ project.pk }}"
+        }).done(function( issues ) {
+            for (var i = 0; i < issues.length; i++){
+                if (issues[i].current_type == null){
+                    issues[i].current_type = 'open';
+                }
+                var targetMilestonePanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']");
+                if (!targetMilestonePanel.length) {
+                    if (!$('#unassigned-milestone').length) {
+                        var projectMilestones = $('.project-milestones');
+                        projectMilestones.find('.milestone-panel').eq(0)
+                                .clone()
+                                .find('.panel-heading')
+                                .children().remove().end()
+                                .text('Unassigned milestone')
+                                .end()
+                                .find('.panel-body')
+                                .removeAttr('milestone-id')
+                                .end()
+                                .find('.dropable')
+                                .each(function() { $(this).addClass('undropable').children().remove() })
+                                .end()
+                                .attr('id', 'unassigned-milestone')
+                                .appendTo(projectMilestones)
+                    }
+                    targetMilestonePanel = $('#unassigned-milestone');
+                }
+
+                var targetPlaceForPanel = targetMilestonePanel.find("." + issues[i].current_type.type + "-row");
+                if (!targetPlaceForPanel.length) {
+                    unassignedColumn = $('#unassigned-column');
+                    if (!unassignedColumn.length) {
+                        issueTypeColumns = $('.issue-type-column');
+                        var oldBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
+                        $('#columns-header').children().first()
+                                .clone()
+                                .attr('id', 'unassigned-column')
+                                .find('h2')
+                                .text('Unassigned')
+                                .end()
+                                .appendTo($('#columns-header'));
+                        $('.milestone').each(function() {
+                            $(this).children().first()
+                                    .clone()
+                                    .find('.dropable')
+                                    .removeClass('open-row')
+                                    .addClass('unassigned-row')
+                                    .children().remove().end()
+                                    .end()
+                                    .appendTo(this)
+                        });
+
+                        issueTypeColumns = $('.issue-type-column')
+                        var newBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
+                        issueTypeColumns.removeClass('col-lg-' + oldBootstrapColumnNumber)
+                                .addClass('col-lg-' + newBootstrapColumnNumber);
+                        $('.drop-row').removeClass('col-lg-' + oldBootstrapColumnNumber)
+                                .addClass('col-lg-' + newBootstrapColumnNumber);
+                        enableSortable();
+                    }
+                    targetPlaceForPanel = targetMilestonePanel.find('.unassigned-row');
+                }
+                var existPanel = $("[issue-pk=" + issues[i].pk + "]");
+                var panel = null;
+                if(targetPlaceForPanel.has(existPanel).length){
+                    panel = existPanel;
+                } else {
+                    existPanel.remove();
+                    panel = $("#panel-for-copying").children().clone();
+                    panel.appendTo(targetPlaceForPanel);
+                }
+                panel.find(".issue-name").text(issues[i].name);
+                panel.find(".issue-name").attr("href", issues[i].link);
+                panel.find(".issue-body").text(issues[i].description);
+                var assigneeName = 'Unassigned';
+                if (issues[i].assignee !== null) {
+                    assigneeName = issues[i].assignee.name;
+                }
+                panel.find(".issue-heading-time").text(issues[i].spent_minutes + ' minutes, ' + assigneeName);
+                panel.attr('issue-pk', issues[i].pk);
+            }
         });
 
-        function sortMilestiones(direction, milestone) {
-            $.ajax({
-                url: "{% url 'HuskyJamGuru:sort-milestones' %}",
-                type: "POST",
-                data:{
-                    milestone_id: $(milestone).attr('id'),
-                    direction: direction,
-                    csrfmiddlewaretoken: '{{ csrf_token }}'
-                },
-                success: function(a, b) {
-                    if (direction == 'up') {
-                        moveMilestoneUp(milestone);
-                    } else {
-                        moveMilestoneDown(milestone); 
-                    }
-                }
-            }); 
-        };
 
-        function moveMilestoneUp(elem) {
-            if (elem.prevAll('.milestone-panel').length) {
-                elem.after(elem.prev());
-                if (elem.nextAll('.milestone-panel').length == 1) {
-                    addArrow(elem, 'down');
-                    removeArrow(elem.next(), 'down');
-                }
-                if (!elem.prevAll('.milestone-panel').length) {
-                    removeArrow(elem, 'up');
-                    addArrow(elem.next(), 'up');
-                }
-            }
-        }
+        {#            ///Костыль для того, чтобы сделать зону, куда будут переноситься задачки такой же высоты, как маелстоун.#}
+        {#            $('.milestone').each(#}
+        {#                function() {#}
+        {#                    $(this).find('.drop-row').each(#}
+        {#                        function(){#}
+        {#                            $(this).css("background-color","red");#}
+        {#                            $(this).find(".dropable:not(:contains(.panel))").css("background-color","blue");#}
+        {#                        }#}
+        {#                    )#}
+        {#                }#}
+        {#            );#}
 
-        function moveMilestoneDown(elem) {
-            if (elem.nextAll('.milestone-panel').length) {
-                elem.before(elem.next());
-                if (elem.prevAll('.milestone-panel').length == 1) {
-                    addArrow(elem, 'up');
-                    removeArrow(elem.prev(), 'up');
-                }
-                if (!elem.nextAll('.milestone-panel').length) {
-                    removeArrow(elem, 'down');
-                    addArrow(elem.prev(), 'down');
-                }
-
-            }
-        }
-
-        function removeArrow(elem, direction) {
-            elem.find('.milestone_' + direction).hide();
-        } 
-
-        function addArrow(elem, direction) {
-            elem.find('.milestone_' + direction).show(); 
-        }
-
-        var updateIssueType = function(issuePk, newType){
-            $.ajax({
-                url: "/api/v1/IssueTypeUpdate/",
-                type: "POST",
-                data:{
-                    type: newType,
-                    gitlab_issue: issuePk
-                }
-            }).done(function( result ) {
-                console.log(result);
-            })
-        };
-
-        function enableSortable() {
-            $('.dropable').sortable({
-                connectWith: ".dropable",
-                revert: true,
-                cursor: 'move',
-                activeClass: "ui-state-hover",
-                cancel: ".undropable",
-                receive: function(event, ui){
-                    if ($(event.target).hasClass('unassigned-row')) {
-                        return ui.sender.sortable("cancel"); 
-                    }
-                    var newType = 'open';
-                    {% for type_tuple in project.issues_types_tuple %}
-                        if($(event.target).hasClass("{{ type_tuple|first }}-row")){
-                            newType = '{{ type_tuple|first }}';
-                        }
-                    {% endfor %}
-                    updateIssueType($(ui.item[0]).attr('issue-pk'), newType)
-                },
-            });
-        };
-
-        function updateTaskPositions() {
-            $.ajax({
-                url: "/api/v1/GitLabIssue/?project_pk={{ project.pk }}"
-            }).done(function( issues ) {
-                for (var i = 0; i < issues.length; i++){
-                    if (issues[i].current_type == null){
-                        issues[i].current_type = 'open';
-                    }
-                    var targetMilestonePanel = $("[milestone-id='" + issues[i].gitlab_milestone + "']");
-                    if (!targetMilestonePanel.length) {
-                        if (!$('#unassigned-milestone').length) {
-                            var projectMilestones = $('.project-milestones');
-                            projectMilestones.find('.milestone-panel').eq(0)
-                                             .clone()
-                                             .find('.panel-heading')
-                                             .children().remove().end()
-                                             .text('Unassigned milestone')
-                                             .end()
-                                             .find('.panel-body')
-                                             .removeAttr('milestone-id')
-                                             .end()
-                                             .find('.dropable')
-                                             .each(function() { $(this).addClass('undropable').children().remove() })
-                                             .end()
-                                             .attr('id', 'unassigned-milestone')
-                                             .appendTo(projectMilestones)
-                        }
-                        targetMilestonePanel = $('#unassigned-milestone');
-                    }
-                    
-                    var targetPlaceForPanel = targetMilestonePanel.find("." + issues[i].current_type.type + "-row");
-                    if (!targetPlaceForPanel.length) {
-                        unassignedColumn = $('#unassigned-column');
-                        if (!unassignedColumn.length) {
-                            issueTypeColumns = $('.issue-type-column');
-                            var oldBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
-                            $('#columns-header').children().first()
-                                                .clone()
-                                                .attr('id', 'unassigned-column')
-                                                .find('h2')
-                                                .text('Unassigned')
-                                                .end()
-                                                .appendTo($('#columns-header'));
-                            $('.milestone').each(function() {
-                                $(this).children().first()
-                                       .clone()
-                                       .find('.dropable')
-                                       .removeClass('open-row')
-                                       .addClass('unassigned-row')
-                                       .children().remove().end()
-                                       .end()
-                                       .appendTo(this)
-                            });
-
-                            issueTypeColumns = $('.issue-type-column')
-                            var newBootstrapColumnNumber = Math.floor(12/(issueTypeColumns.length));
-                            issueTypeColumns.removeClass('col-lg-' + oldBootstrapColumnNumber)
-                                            .addClass('col-lg-' + newBootstrapColumnNumber);
-                            $('.drop-row').removeClass('col-lg-' + oldBootstrapColumnNumber)
-                                            .addClass('col-lg-' + newBootstrapColumnNumber);
-                            enableSortable();
-                        }
-                        targetPlaceForPanel = targetMilestonePanel.find('.unassigned-row');
-                    }
-                    var existPanel = $("[issue-pk=" + issues[i].pk + "]");
-                    var panel = null;
-                    if(targetPlaceForPanel.has(existPanel).length){
-                        panel = existPanel;
-                    } else {
-                        existPanel.remove();
-                        panel = $("#panel-for-copying").children().clone();
-                        panel.appendTo(targetPlaceForPanel);
-                    }
-                    panel.find(".issue-name").text(issues[i].name);
-                    panel.find(".issue-name").attr("href", issues[i].link);
-                    panel.find(".issue-body").text(issues[i].description);
-                    var assigneeName = 'Unassigned';
-                    if (issues[i].assignee !== null) {
-                        assigneeName = issues[i].assignee.name;
-                    }
-                    panel.find(".issue-heading-time").text(issues[i].spent_minutes + ' minutes, ' + assigneeName);
-                    panel.attr('issue-pk', issues[i].pk);
-                }
-            });
-            setTimeout(updateTaskPositions, 5000);
-        }
+        setTimeout(updateTaskPositions, 5000);
+    }
     </script>
 {% endblock %}
