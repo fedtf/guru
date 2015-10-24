@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -10,6 +11,9 @@ from django.utils import timezone
 from django.core.urlresolvers import reverse
 
 from requests_oauthlib import OAuth2Session
+
+
+logger = logging.getLogger(__name__)
 
 
 class GitlabSynchronizeMixin(object):
@@ -28,7 +32,9 @@ class GitlabSynchronizeMixin(object):
                 data = [data]
             return data
         else:
-            return None
+            logger.warning("Gitlab api returned not 200, it returned {} with reason {}".format(response.status_code,
+                                                                                               response.reason))
+            return []
 
     @classmethod
     def push_to_gitlab(cls, request_path, push_data, type='update'):
