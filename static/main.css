@@ -14,6 +14,7 @@ body {
 .drop-row {
     min-height:100% !important; /* browser fill */
     height:auto;
+    display: flex;
 }
 
 .box-shadow {
