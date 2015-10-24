@@ -95,8 +95,8 @@ def fix_milestones_id(request):
                 settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/milestones"
             ).content.decode("utf-8")
         )
-        try:
-            for milestone in milestones:
+        for milestone in milestones:
+            try:
                 gitlab_milestone = GitLabMilestone.objects.get_or_create(
                     gitlab_milestone_id=milestone['iid'],
                     gitlab_project=gitlab_project
@@ -106,5 +106,5 @@ def fix_milestones_id(request):
                 gitlab_milestone.name = milestone['title']
                 gitlab_milestone.closed = milestone['state'] != 'active'
                 gitlab_milestone.save()
-        except Exception:
-            pass
+            except Exception:
+                pass
