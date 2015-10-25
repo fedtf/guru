@@ -49,7 +49,11 @@ class GitLabIssueViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if 'project_pk' in self.request.query_params:
-                return GitLabIssue.objects.filter(gitlab_project__project=self.request.query_params['project_pk']).all()
+            return GitLabIssue.objects.filter(gitlab_project__project=self.request.query_params['project_pk']).all()
+        elif 'milestone_pk' in self.request.query_params:
+            return GitLabIssue.objects.filter(gitlab_milestone=self.request.query_params['milestone_pk']).all()
+        elif 'issue_pk' in self.request.query_params:
+            return GitLabIssue.objects.get(pk=self.request.query_params['issue_pk'])
         return GitLabIssue.objects.all()
 
 

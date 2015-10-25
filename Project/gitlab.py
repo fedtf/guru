@@ -8,7 +8,7 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.conf import settings
 
-from celery import shared_task
+from Project.celery import app
 
 from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilestone, GitLabIssue
 
@@ -72,7 +72,7 @@ def reassign_issue(request, issue, gitlab_user):
     ).content.decode("utf-8")
 
 
-@shared_task
+@app.task()
 def load_new_and_update_existing_projects_from_gitlab():
     GitlabProject.pull_from_gitlab()
     GitLabMilestone.pull_from_gitlab()

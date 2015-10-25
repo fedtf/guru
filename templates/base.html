@@ -83,11 +83,38 @@
             syncButton.text("Doing smth strange...");
             $.ajax({
                 url: "/synchronise-with-gitlab"
-            }).done(function( issues ) {
-                syncButton.text("Synchronised successfully");
-            });
+            }).done(function(taskId) {
+                    CheckIfTaskIsDone(taskId, function() { syncButton.text("Synchronised successfully"); }); 
+                });
         });
     });
+
+    function CheckIfTaskIsDone(taskId, callback, checkPeriod) {
+
+        var period = checkPeriod || 3000;
+        var checkTimes = 0;
+        var timer = setInterval(ajaxTaskStatusCheck, period);
+        
+        function ajaxTaskStatusCheck() {
+            $.ajax({
+                url: "{% url 'HuskyJamGuru:check-if-task-is-done' %}",
+                data: {
+                    task_id: taskId,
+                },
+                success: function(status) {
+                    if (status == 'done') {
+                        clearInterval(timer);
+                        callback();
+                    } else if (checkTimes >= 9) {
+                        clearInterval(timer);    
+                    } 
+                    checkTimes++;
+                }
+            });
+        }
+    }
+
+
 </script>
 {% bootstrap_javascript %}
 </body>

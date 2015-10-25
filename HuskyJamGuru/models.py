@@ -11,6 +11,9 @@ from django.utils import timezone
 from django.core.urlresolvers import reverse
 
 from requests_oauthlib import OAuth2Session
+from celery.contrib.methods import task_method
+
+from Project.celery import app
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +53,7 @@ class Project(models.Model):
     finish_date_assessment = models.DateField()
     issues_types = models.TextField(default='open, in progress, fixed, verified')
 
+    @app.task(filter=task_method, name="Project.update_from_gitlab")
     def update_from_gitlab(self):
         for gitlab_project in self.gitlab_projects.all():
             gitlab_project.update_from_gitlab()
@@ -193,6 +197,7 @@ class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
             gitlab_project.creation_time = project['created_at']
             gitlab_project.save()
 
+    @app.task(filter=task_method, name="GitlabProject.update_from_gitlab")
     def update_from_gitlab(self):
         GitlabProject.pull_from_gitlab('projects/{}'.format(self.gitlab_id))
         GitLabMilestone.pull_from_gitlab('projects/{}/milestones'.format(self.gitlab_id))
@@ -246,6 +251,7 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
             gitlab_milestone.closed = milestone['state'] != 'active'
             gitlab_milestone.save()
 
+    @app.task(filter=task_method, name="GitLabMilestone.update_from_gitlab")
     def update_from_gitlab(self):
         GitLabMilestone.pull_from_gitlab('projects/{}/milestones/{}'
                                          .format(self.gitlab_project.gitlab_id,
@@ -311,6 +317,7 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
             gitlab_issue.updated_at = issue['updated_at']
             gitlab_issue.save()
 
+    @app.task(filter=task_method, name="GitLabIssue.update_from_gitlab")
     def update_from_gitlab(self):
         GitLabIssue.pull_from_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
                                                                     self.gitlab_issue_id))

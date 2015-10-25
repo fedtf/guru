@@ -1,12 +1,13 @@
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotFound
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect
 
 from braces import views as braces_views
+from celery.result import AsyncResult
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
@@ -48,8 +49,9 @@ class ProjectListView(ListView):
 
 
 class UpdateItemFromGitlabView(braces_views.LoginRequiredMixin,
+                               braces_views.AjaxResponseMixin,
                                View):
-    def get(self, request):
+    def get_ajax(self, request, *args, **kwargs):
         item_name = request.GET.get('item_name')
         item_pk = request.GET.get('item_pk')
 
@@ -57,28 +59,40 @@ class UpdateItemFromGitlabView(braces_views.LoginRequiredMixin,
 
         if item_name == 'project':
             item = Project.objects.get(pk=item_pk)
-            project_pk = item_pk
         elif item_name == 'gitlab_project':
             item = GitlabProject.objects.get(pk=item_pk)
-            project_pk = item.project.pk
         elif item_name == 'milestone':
             item = GitLabMilestone.objects.get(pk=item_pk)
-            project_pk = item.gitlab_project.project.pk
         elif item_name == 'issue':
             item = GitLabIssue.objects.get(pk=item_pk)
-            project_pk = item.gitlab_project.project.pk
 
         if not item:
-            return redirect(reverse_lazy('HuskyJamGuru:project-list'))
+            return HttpResponseNotFound()
 
-        item.update_from_gitlab()
+        task = item.update_from_gitlab.delay()
 
-        return redirect(reverse_lazy('HuskyJamGuru:project-detail', kwargs={'pk': project_pk}))
+        return HttpResponse(task.id)
 
 
 def synchronise_with_gitlab(request):
-    load_new_and_update_existing_projects_from_gitlab()
-    return HttpResponse()
+    task = load_new_and_update_existing_projects_from_gitlab.delay()
+    return HttpResponse(task.id)
+
+
+class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
+                            braces_views.AjaxResponseMixin,
+                            View):
+    raise_exception = True
+
+    def get_ajax(self, request):
+        task_id = request.GET.get('task_id')
+
+        result = AsyncResult(task_id)
+        if result.successful():
+            status = 'done'
+        else:
+            status = 'in work'
+        return HttpResponse(status)
 
 
 class ProjectDetailView(DetailView):
