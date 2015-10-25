@@ -148,14 +148,13 @@
                     item_pk: target.attr('data-item-pk'),
                 },
                 success: function(taskId) {
+                    console.log('success update', taskId);
                     CheckIfTaskIsDone(taskId, function() { location.reload(); }) 
                 }
-            })
-        }
-
-        function updateItemElement(itemName, itemPk) {
-            $.ajax({
-                url: "/api/v1/GitLabIssue/?" + itemName + "_pk=" + itemPk,
+                error: function(response) {
+                    console.log('error update');
+                    console.log(response)
+                }
             })
         }
 

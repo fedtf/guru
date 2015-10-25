@@ -102,6 +102,7 @@
                     task_id: taskId,
                 },
                 success: function(status) {
+                    console.log('success done', status)
                     if (status == 'done') {
                         clearInterval(timer);
                         callback();
@@ -109,6 +110,9 @@
                         clearInterval(timer);    
                     } 
                     checkTimes++;
+                }
+                error: function(response) {
+                    console.log('error done', response);
                 }
             });
         }
