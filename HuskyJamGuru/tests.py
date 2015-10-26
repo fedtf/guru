@@ -1,5 +1,4 @@
 import datetime
-import math
 
 from django.test import TestCase
 from django.core.urlresolvers import resolve, reverse
@@ -592,6 +591,3 @@ class PersonalTimeReportTest(TestCase):
 
         self.assertTrue(found_week1)
         self.assertTrue(found_week2)
-
-        weeks_passed = math.ceil((timezone.now().date() - datetime.date(2015, 7, 6)).days / 7)
-        self.assertEqual(len(weekly_records), weeks_passed)
