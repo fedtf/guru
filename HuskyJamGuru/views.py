@@ -96,7 +96,7 @@ class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
         result = AsyncResult(task_id)
 
         with open('{}/celery-log.txt'.format(project_settings.BASE_DIR), 'a') as log:
-            print(result, result.state, task_id, result.app, result.app.tasks, file=log)
+            print(result, result.state, task_id, result.app, file=log)
 
         if result.successful():
             status = 'done'
