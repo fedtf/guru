@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
@@ -12,6 +14,9 @@ from celery.result import AsyncResult
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject
+
+
+logger = logging.getLogger(__name__)
 
 
 def milestones_fix(request):
@@ -88,6 +93,10 @@ class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
         task_id = request.GET.get('task_id')
 
         result = AsyncResult(task_id)
+
+        logger.warning(result)
+        logger.warning(task_id)
+
         if result.successful():
             status = 'done'
         else:
