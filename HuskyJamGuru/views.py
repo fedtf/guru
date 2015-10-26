@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from Project import settings as project_settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse, HttpResponseNotFound
@@ -94,8 +95,8 @@ class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
 
         result = AsyncResult(task_id)
 
-        logger.warning(result)
-        logger.warning(task_id)
+        with open('{}/celery-log.txt'.format(project_settings.BASE_DIR), 'a') as log:
+            print(result, result.state, task_id, result.app, result.app.tasks, file=log)
 
         if result.successful():
             status = 'done'
