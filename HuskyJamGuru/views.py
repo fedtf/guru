@@ -1,7 +1,6 @@
 import logging
 
 from django.conf import settings
-from Project import settings as project_settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse, HttpResponseNotFound
@@ -11,10 +10,12 @@ from django.shortcuts import redirect
 
 from braces import views as braces_views
 from celery.result import AsyncResult
+from rest_framework.reverse import reverse_lazy as full_path_reverse_lazy
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject
+from .telegram_bot import telegam_bot
 
 
 logger = logging.getLogger(__name__)
@@ -94,9 +95,6 @@ class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
         task_id = request.GET.get('task_id')
 
         result = AsyncResult(task_id)
-
-        with open('{}/celery-log.txt'.format(project_settings.BASE_DIR), 'a') as log:
-            print(result, result.state, task_id, result.app, file=log)
 
         if result.successful():
             status = 'done'
@@ -264,3 +262,15 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     template_name = 'HuskyJamGuru/personal_time_report.html'
     context_object_name = 'report_user'
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
+
+
+class TelegramWebhookView(View):
+    def post(self, request, *args, **kwargs):
+        with open('celery-log.txt', 'a') as log:
+            print(request.POST, file=log)
+        return HttpResponse()
+
+
+def set_webhook(request):
+    telegam_bot.set_webhook(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
+    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))

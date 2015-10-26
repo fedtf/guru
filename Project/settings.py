@@ -121,6 +121,8 @@ GITLAB_URL = 'http://185.22.60.142:8889'
 GITLAB_APPLICATION_ID = '9bc472164fc76c3dda596f01205cba2bb63a47d4e57d59fd5dd01762b3042721'
 GITLAB_APPLICATION_SECRET = 'b3d2981b461dded4655810765b2e898ced9fd55a277348a1502607960da5c1f2'
 
+TELEGRAM_BOT_TOKEN = '120588339:AAEoCfGkxPMOcbtlDXP31xPvH_v7hUD_eho'
+
 SITE_ID = 1
 
 LOGIN_URL = '/login'
@@ -134,4 +136,5 @@ LOGIN_REQUIRED_URLS_EXCEPTIONS = (
     r'/login(.*)$',
     r'/admin(.*)$',
     r'/gitlab_auth_callback(.*)$',
+    r'/{}$'.format(TELEGRAM_BOT_TOKEN),
 )

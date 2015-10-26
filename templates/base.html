@@ -47,6 +47,7 @@
                 {% if user.is_authenticated   %}
                     <li><a href="{% url 'HuskyJamGuru:project-list' %}">Projects</a></li>
                     <li><a href="" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
+                    <li><a href="{% url 'HuskyJamGuru:set-telegram-webhook' %}" >Set Webhook</a></li>
                     {% if user.is_superuser %}
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}
