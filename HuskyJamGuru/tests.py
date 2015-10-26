@@ -13,7 +13,6 @@ from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLab
 
 
 def create_data():
-    # function to prepopulate test database
     project = Project(name='testproject', creation_date=timezone.now(),
                       finish_date_assessment=timezone.now())
     project.save()
