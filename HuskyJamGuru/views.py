@@ -266,7 +266,7 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
 
 class TelegramWebhookView(View):
     def post(self, request, *args, **kwargs):
-        with open('celery-log.txt', 'a') as log:
+        with open('{}/celery-log.txt'.format(settings.BASE_DIR), 'a') as log:
             print(request.POST, file=log)
         return HttpResponse()
 
