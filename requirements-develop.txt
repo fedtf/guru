@@ -8,4 +8,5 @@ django-debug-toolbar
 django-braces
 celery
 django-celery
-twx.botapi
+python-telegram-bot
+django-multiselectfield

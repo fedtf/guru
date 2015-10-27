@@ -12,6 +12,7 @@ from django.core.urlresolvers import reverse
 
 from requests_oauthlib import OAuth2Session
 from celery.contrib.methods import task_method
+from multiselectfield import MultiSelectField
 
 from Project.celery import app
 
@@ -432,3 +433,15 @@ class IssueTypeUpdate(models.Model):
 
         self.project = self.gitlab_issue.gitlab_project.project
         super(IssueTypeUpdate, self).save(*args, **kwargs)
+
+
+class TelegramUser(models.Model):
+    EVENTS = (
+        ('issue', 'New Issue Comments'),
+        ('milestone', 'New Milestone Comments'),
+        ('merge_request', 'New Merge Requests'),
+    )
+
+    user = models.OneToOneField(User, related_name='telegram_user')
+    telegram_id = models.CharField(max_length=50, blank=True)
+    notification_events = MultiSelectField(choices=EVENTS, blank=True)

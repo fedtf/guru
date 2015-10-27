@@ -4,7 +4,7 @@ from Project import settings
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
     synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
     LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView,\
-    CheckIfTaskIsDoneView, telegram_webhook, set_webhook
+    CheckIfTaskIsDoneView, telegram_webhook, set_webhook, UserProfileView
 
 
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^project-update/(?P<pk>\d+)/$', ProjectUpdateView.as_view(), name='project-update'),
     url(r'^project-report/(?P<pk>\d+)/$', ProjectReportView.as_view(), name='project-report'),
     url(r'^personal-time-report/(?P<pk>\d+)/$', PersonalTimeReportView.as_view(), name='personal-time-report'),
+    url(r'^user-profile/(?P<pk>\d+)/$', UserProfileView.as_view(), name='user-profile'),
     url(r'^sort-milestones$', SortMilestonesView.as_view(), name='sort-milestones'),
     url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
     url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),

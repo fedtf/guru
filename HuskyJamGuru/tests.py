@@ -7,9 +7,9 @@ from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
-    ProjectUpdateView, PersonalTimeReportView
+    ProjectUpdateView, PersonalTimeReportView, UserProfileView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser
 
 
 def create_data():
@@ -590,3 +590,48 @@ class PersonalTimeReportTest(TestCase):
 
         self.assertTrue(found_week1)
         self.assertTrue(found_week2)
+
+
+class ProjectDetailTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.page_url = '/user-profile/{}/'.format(self.user.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, UserProfileView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/user_profile.html')
+
+    def test_page_contains_initialise_link_if_no_telegram_id(self):
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        self.assertContains(response, initialise_link)
+
+    def test_no_link_if_user_has_telegram_id(self):
+        TelegramUser.objects.create(user=self.user, telegram_id='23456')
+
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        self.assertNotContains(response, initialise_link)
+
+    def test_page_saves_notification_events_correctly(self):
+        data = {
+            'notification_events': ['issue', 'milestone'],
+        }
+        self.client.post(self.page_url, data)
+
+        self.assertEqual(self.user.telegram_user.notification_events, ['issue', 'milestone'])
+
+    def test_page_returns_forbidden_if_request_from_other_user(self):
+        response = self.client.get('/user-profile/156/')
+        self.assertEqual(response.status_code, 403)

@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
@@ -7,18 +8,20 @@ from django.http import HttpResponse, HttpResponseNotFound
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect
+from django.core.exceptions import ObjectDoesNotExist
 
 from braces import views as braces_views
 from celery.result import AsyncResult
-from rest_framework.reverse import reverse_lazy as full_path_reverse_lazy
+from rest_framework.reverse import reverse as full_path_reverse_lazy
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
-    GitLabMilestone, GitlabProject
-from .telegram_bot import telegam_bot
+    GitLabMilestone, GitlabProject, TelegramUser
+from .telegram_bot import telegram_bot
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def milestones_fix(request):
@@ -265,11 +268,41 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
 
 
 def telegram_webhook(request):
-    with open('{}/celery-log.txt'.format(settings.BASE_DIR), 'a') as log:
-        print(request.POST, file=log)
+    logger.info('got request webhook', request.body)
     return HttpResponse()
 
 
 def set_webhook(request):
-    response = telegam_bot.set_webhook(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request)).wait()
-    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request) + str(response))
+    full_path_for_webhook = full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request)
+    response = telegram_bot.setWebhook(full_path_for_webhook).wait()
+    logger.info('set request webhook', response)
+    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
+
+
+class UserProfileView(braces_views.LoginRequiredMixin,
+                      braces_views.UserPassesTestMixin,
+                      UpdateView):
+    model = TelegramUser
+    fields = ['notification_events']
+    template_name = 'HuskyJamGuru/user_profile.html'
+    success_url = reverse_lazy("HuskyJamGuru:project-list")
+    raise_exception = True
+
+    def test_func(self, user):
+        return user.pk == int(self.kwargs.get('pk'))
+
+    def get_object(self):
+        try:
+            telegram_user = self.request.user.telegram_user
+        except ObjectDoesNotExist:
+            telegram_user = TelegramUser.objects.create(user=self.request.user)
+        return telegram_user
+
+    def get_context_data(self, **kwargs):
+        context = super(UserProfileView, self).get_context_data(**kwargs)
+        if not self.request.user.telegram_user.telegram_id:
+            temp_uuid = uuid.uuid4().hex
+            self.request.user.telegram_user.telegram_id = temp_uuid
+            self.request.user.telegram_user.save()
+            context['temp_uuid'] = temp_uuid
+        return context
