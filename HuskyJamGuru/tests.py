@@ -592,7 +592,7 @@ class PersonalTimeReportTest(TestCase):
         self.assertTrue(found_week2)
 
 
-class ProjectDetailTest(TestCase):
+class UserProfileTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
