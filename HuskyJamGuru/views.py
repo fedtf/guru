@@ -264,13 +264,12 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
 
 
-class TelegramWebhookView(View):
-    def post(self, request, *args, **kwargs):
-        with open('{}/celery-log.txt'.format(settings.BASE_DIR), 'a') as log:
-            print(request.POST, file=log)
-        return HttpResponse()
+def telegram_webhook(request):
+    with open('{}/celery-log.txt'.format(settings.BASE_DIR), 'a') as log:
+        print(request.POST, file=log)
+    return HttpResponse()
 
 
 def set_webhook(request):
-    telegam_bot.set_webhook(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
-    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
+    response = telegam_bot.set_webhook(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request)).wait()
+    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request) + str(response))
