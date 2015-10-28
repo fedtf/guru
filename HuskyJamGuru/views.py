@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect
 from django.core.exceptions import ObjectDoesNotExist
+from django.views.decorators.csrf import csrf_exempt
 
 from braces import views as braces_views
 from celery.result import AsyncResult
@@ -267,11 +268,13 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
 
 
+@csrf_exempt
 def gitlab_webhook(request):
     logger.info('got webhook from gitlab {}, {}'.format(request.POST, request.body))
     return HttpResponse()
 
 
+@csrf_exempt
 def telegram_webhook(request):
     logger.info('got request webhook; {}'.format(request.body))
     return HttpResponse()
