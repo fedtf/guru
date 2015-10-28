@@ -445,3 +445,4 @@ class TelegramUser(models.Model):
     user = models.OneToOneField(User, related_name='telegram_user')
     telegram_id = models.CharField(max_length=50, blank=True)
     notification_events = MultiSelectField(choices=EVENTS, blank=True)
+    notification_enabled = models.BooleanField(default=False)

@@ -279,14 +279,14 @@ def gitlab_webhook(request):
         project = GitlabProject.objects.get(project_id=webhook_info['project_id']).project
 
         message_text = ("Hi there, {user_name}! There is a new {event_type} from {event_emitter} "
-        "in the project {project_name}. C'mon checkout!")
+                        "in the project {project_name}. C'mon checkout!")
 
         for user in set(access.user for access in project.user_project_accesses.all()):
             try:
                 telegram_user = user.telegram_user
             except ObjectDoesNotExist:
                 continue
-            if webhook_info['object_kind'] in telegram_user.notification_events:
+            if telegram_user.notification_enabled and webhook_info['object_kind'] in telegram_user.notification_events:
                 telegram_bot.sendMessage(chat_id=telegram_user.telegram_id,
                                          text=message_text.format(user_name=user.gitlabauthorisation.name,
                                                                   event_type=webhook_info['object_kind'],
@@ -331,3 +331,11 @@ class UserProfileView(braces_views.LoginRequiredMixin,
         form = super(UserProfileView, self).get_form(form_class)
         form['notification_events'].label = 'Choose kinds of events that you whant to be notified about:'
         return form
+
+    def post(self, request, *args, **kwargs):
+        if request.POST.get('notification_enabled') == 'False':
+            request.user.telegram_user.notification_enabled = False
+            request.user.telegram_user.save()
+            return redirect(self.success_url)
+        else:
+            return super(UserProfileView, self).post(request, *args, **kwargs)

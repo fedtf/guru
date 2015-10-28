@@ -9,7 +9,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView, PersonalTimeReportView, UserProfileView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser
 
 
 def create_data():
@@ -612,10 +612,16 @@ class UserProfileTest(TestCase):
         response = self.client.get(self.page_url)
         self.assertTemplateUsed(response, 'HuskyJamGuru/user_profile.html')
 
-    def test_page_contains_initialise_link_if_no_telegram_id(self):
+    def test_page_contains_initialise_link_if_notifications_disabled(self):
         response = self.client.get(self.page_url)
         initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
         self.assertContains(response, initialise_link)
+
+    def test_page_not_contains_initialise_link_if_notifications_enabled(self):
+        TelegramUser.objects.create(user=self.user, telegram_id='23455', notification_enabled=True)
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        self.assertNotContains(response, initialise_link)
 
     def test_page_saves_notification_events_correctly(self):
         data = {

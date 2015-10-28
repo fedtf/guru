@@ -6,8 +6,16 @@
     {% csrf_token %}
     <input type="submit" value="Submit" name="submit">
 </form>
-
-<span>To subscribe click on the link and then "Start" in the new conversation in your Telegram app.</span><br/>
-<a href="https://telegram.me/HuskyJamGuruBot?start={{ user.telegram_user.telegram_id }}">Subscribe to notifications</a>
+{% if not user.telegram_user.notification_enabled %}
+    <span>Notification disabled. To subscribe click on the link and then "Start" in the new conversation in your Telegram app.</span><br/>
+    <a href="https://telegram.me/HuskyJamGuruBot?start={{ user.telegram_user.telegram_id }}">Subscribe to notifications</a>
+{% else %}
+    Notification enabled
+    <form method="post" action=".">
+        <input type="hidden" name="notification_enabled" value="False">
+        {% csrf_token %}
+        <input type="submit" value="Disable notifications" name="submit">
+    </form>
+{% endif %}
 
 {% endblock %}
