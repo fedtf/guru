@@ -7,8 +7,7 @@
     <input type="submit" value="Submit" name="submit">
 </form>
 
-{% if temp_uuid %}
-    <a href="https://telegram.me/HuskyJamGuruBot?start={{ temp_uuid }}">Subscribe to notifications</a>
-{% endif %}
+<span>To subscribe click on the link and then "Start" in the new conversation in your Telegram app.</span><br/>
+<a href="https://telegram.me/HuskyJamGuruBot?start={{ user.telegram_user.telegram_id }}">Subscribe to notifications</a>
 
 {% endblock %}

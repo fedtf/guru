@@ -289,20 +289,16 @@ class UserProfileView(braces_views.LoginRequiredMixin,
     raise_exception = True
 
     def test_func(self, user):
-        return user.pk == int(self.kwargs.get('pk'))
+        return str(user.pk) == self.kwargs.get('pk')
 
     def get_object(self):
         try:
             telegram_user = self.request.user.telegram_user
         except ObjectDoesNotExist:
-            telegram_user = TelegramUser.objects.create(user=self.request.user)
+            telegram_user = TelegramUser.objects.create(user=self.request.user, telegram_id=uuid.uuid4().hex)
         return telegram_user
 
-    def get_context_data(self, **kwargs):
-        context = super(UserProfileView, self).get_context_data(**kwargs)
-        if not self.request.user.telegram_user.telegram_id:
-            temp_uuid = uuid.uuid4().hex
-            self.request.user.telegram_user.telegram_id = temp_uuid
-            self.request.user.telegram_user.save()
-            context['temp_uuid'] = temp_uuid
-        return context
+    def get_form(self, form_class):
+        form = super(UserProfileView, self).get_form(form_class)
+        form['notification_events'].label = 'Choose kinds of events that you whant to be notified about:'
+        return form

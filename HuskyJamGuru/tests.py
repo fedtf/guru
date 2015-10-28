@@ -9,7 +9,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView, PersonalTimeReportView, UserProfileView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
 
 
 def create_data():
@@ -616,13 +616,6 @@ class UserProfileTest(TestCase):
         response = self.client.get(self.page_url)
         initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
         self.assertContains(response, initialise_link)
-
-    def test_no_link_if_user_has_telegram_id(self):
-        TelegramUser.objects.create(user=self.user, telegram_id='23456')
-
-        response = self.client.get(self.page_url)
-        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
-        self.assertNotContains(response, initialise_link)
 
     def test_page_saves_notification_events_correctly(self):
         data = {
