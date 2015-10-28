@@ -267,15 +267,20 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
 
 
+def gitlab_webhook(request):
+    logger.info('got webhook from gitlab {}, {}'.format(request.POST, request.body))
+    return HttpResponse()
+
+
 def telegram_webhook(request):
-    logger.info('got request webhook', request.body)
+    logger.info('got request webhook; {}'.format(request.body))
     return HttpResponse()
 
 
 def set_webhook(request):
     full_path_for_webhook = full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request)
-    response = telegram_bot.setWebhook(full_path_for_webhook).wait()
-    logger.info('set request webhook', response)
+    response = telegram_bot.setWebhook(full_path_for_webhook)
+    logger.info('set request webhook; response: {}'.format(response))
     return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
 
 
