@@ -70,3 +70,6 @@ get_logs:
     - export BRANCH=${BRANCH,,};
     - docker exec $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'cat django.log';
     - docker exec $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'cat celery-log.txt';
+    - docker exec $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'DJANGO_SETTINGS_MODULE="Project.production_settings" python3 ./manage.py celery worker --logfile celery-log.txt -l info 2>&1 &';
+    
+
