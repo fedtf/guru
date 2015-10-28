@@ -270,7 +270,8 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
 
 @csrf_exempt
 def gitlab_webhook(request):
-    logger.info('got webhook from gitlab {}, {}'.format(request.POST, request.body))
+    with open('debug-log.txt', 'a') as f:
+        print('got webhook from gitlab {}, {}'.format(request.POST, request.body), file=f)
     return HttpResponse()
 
 
