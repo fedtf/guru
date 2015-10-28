@@ -69,3 +69,4 @@ get_logs:
     - export BRANCH=${CI_BUILD_REF_NAME//[^0-9A-Za-z]/};
     - export BRANCH=${BRANCH,,};
     - docker exec $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'cat django.log';
+    - docker exec $DOCKER_IMAGE_NAME-$BRANCH /bin/bash -c 'cat debug-log.txt';
