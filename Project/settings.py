@@ -136,7 +136,8 @@ LOGIN_REQUIRED_URLS_EXCEPTIONS = (
     r'/login(.*)$',
     r'/admin(.*)$',
     r'/gitlab_auth_callback(.*)$',
-    r'/{}$'.format(TELEGRAM_BOT_TOKEN),
+    r'/{}(.*)$'.format(TELEGRAM_BOT_TOKEN),
+    r'/gitlab-webhook(.*)$',
 )
 
 LOGGING = {
