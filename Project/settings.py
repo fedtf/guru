@@ -94,6 +94,8 @@ DATABASES = {
 
 CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
 BROKER_URL = 'django://'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
