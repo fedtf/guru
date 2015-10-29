@@ -269,30 +269,15 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
 
 
-@csrf_exempt
-def gitlab_webhook(request):
-    with open('debug-log.txt', 'a') as f:
-        print('got webhook from gitlab {}, {}'.format(request.POST, request.body), file=f)
+class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
+    def post(self, request, *args, **kwargs):
+        with open('debug-log.txt', 'a') as f:
+            print('got webhook from gitlab {}, {}'.format(request.POST, request.body), file=f)
 
-    if request.body:
-        webhook_info = json.loads(request.body.decode('utf-8'))
-        project = GitlabProject.objects.get(project_id=webhook_info['project_id']).project
-
-        message_text = ("Hi there, {user_name}! There is a new {event_type} from {event_emitter} "
-                        "in the project {project_name}. C'mon checkout!")
-
-        for user in set(access.user for access in project.user_project_accesses.all()):
-            try:
-                telegram_user = user.telegram_user
-            except ObjectDoesNotExist:
-                continue
-            if telegram_user.notification_enabled and webhook_info['object_kind'] in telegram_user.notification_events:
-                telegram_bot.sendMessage(chat_id=telegram_user.telegram_id,
-                                         text=message_text.format(user_name=user.gitlabauthorisation.name,
-                                                                  event_type=webhook_info['object_kind'],
-                                                                  event_emitter=webhook_info['user_name'],
-                                                                  project_name=project.name))
-    return HttpResponse()
+        if request.body:
+            webhook_info = json.loads(request.body.decode('utf-8'))
+            telegram_bot.send_notifications(webhook_info)
+        return HttpResponse()
 
 
 @csrf_exempt

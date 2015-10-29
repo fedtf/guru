@@ -437,8 +437,8 @@ class IssueTypeUpdate(models.Model):
 
 class TelegramUser(models.Model):
     EVENTS = (
-        ('issue', 'New Issue Comments'),
-        ('milestone', 'New Milestone Comments'),
+        ('issue', 'New Issue Creations'),
+        ('note', 'New Comments'),
         ('merge_request', 'New Merge Requests'),
     )
 

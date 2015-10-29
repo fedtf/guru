@@ -625,11 +625,11 @@ class UserProfileTest(TestCase):
 
     def test_page_saves_notification_events_correctly(self):
         data = {
-            'notification_events': ['issue', 'milestone'],
+            'notification_events': ['note', 'merge_request'],
         }
         self.client.post(self.page_url, data)
 
-        self.assertEqual(self.user.telegram_user.notification_events, ['issue', 'milestone'])
+        self.assertEqual(self.user.telegram_user.notification_events, ['note', 'merge_request'])
 
     def test_page_returns_forbidden_if_request_from_other_user(self):
         response = self.client.get('/user-profile/156/')
