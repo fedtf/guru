@@ -6,10 +6,10 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
+from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView, \
     ProjectUpdateView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone, \
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalDayWorkPlan
 
 
 def create_data():
@@ -500,3 +500,41 @@ class TestLoginAsGuruUser(TestCase):
 
         response = self.client.post('/login-as-guru/', data, follow=True)
         self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
+
+
+class TestWorkPlans(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='test',
+            password='testpass',
+            email='testuser@example.com'
+        )
+
+        # Записываем разные планы на один день, последний должен перекрыть предыдущие
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=1).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=3).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=2).save()
+
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 11), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 12), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 13), work_hours=4).save()
+
+    def test_getting(self):
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 3, 10))
+        self.assertQuerysetEqual(work_plan, PersonalDayWorkPlan.objects.none())
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 10))
+        self.assertEqual(len(work_plan), 1)
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 11))
+
+        self.assertEqual(len(work_plan), 2)
+        self.assertEqual(work_plan[0].work_hours, 2)
+        self.assertEqual(work_plan[1].work_hours, 4)
+
+    def test_getting_borders(self):
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 3, 11))
+        self.assertEqual(days, 0)
+
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 5, 11))
+        self.assertEqual(days, 2)

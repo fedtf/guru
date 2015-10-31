@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
@@ -9,8 +11,9 @@ from django.shortcuts import redirect, render
 from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
-from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
-    GitLabMilestone
+from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue, \
+    GitLabMilestone, PersonalDayWorkPlan
+from .forms import PersonalPlanForm
 
 
 def milestones_fix(request):
@@ -32,6 +35,39 @@ class LoginAsGuruUserView(FormView):
 
     def form_invalid(self, form):
         return self.render_to_response(self.get_context_data(form=form))
+
+
+class PersonalPlanUpdateView(braces_views.LoginRequiredMixin, FormView):
+    template_name = 'HuskyJamGuru/personal_plan.html'
+    form_class = PersonalPlanForm
+
+    def get_initial(self):
+        initial = super(PersonalPlanUpdateView, self).get_initial()
+        work_plans = PersonalDayWorkPlan.get_work_plan(
+            self.request.user,
+            datetime.datetime.today().date() + datetime.timedelta(days=1),
+            datetime.datetime.today() + datetime.timedelta(days=7 + 1)
+        )
+        for work_plan in work_plans:
+            initial[
+                'day_%i' % (work_plan.date - datetime.datetime.today().date() - datetime.timedelta(days=1)).days
+            ] = work_plan.work_hours
+        return initial
+
+    def form_valid(self, form):
+        for i in range(7):
+            date = datetime.datetime.today() + datetime.timedelta(days=i + 1)
+            current_work_plan = PersonalDayWorkPlan.get_work_plan(self.request.user, date, date)
+            if not form.cleaned_data['day_%s' % i] == '':
+                if len(current_work_plan) == 0 or \
+                        current_work_plan[0].work_hours != int(form.cleaned_data['day_%s' % i]):
+                    PersonalDayWorkPlan(
+                        user=self.request.user, date=date, work_hours=int(form.cleaned_data['day_%s' % i])
+                    ).save()
+        return super(PersonalPlanUpdateView, self).form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('HuskyJamGuru:personal-plan')
 
 
 class ProjectListView(ListView):
@@ -113,7 +149,7 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
         milestone_priority = milestone.priority
 
         if direction == 'up':
-            next_milestone = milestone.gitlab_project.gitlab_milestones\
+            next_milestone = milestone.gitlab_project.gitlab_milestones \
                 .filter(priority__lt=milestone_priority).last()
             if next_milestone is not None:
                 milestone.priority = next_milestone.priority
@@ -122,7 +158,7 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
                 milestone.save()
                 next_milestone.save()
         elif direction == 'down':
-            prev_milestone = milestone.gitlab_project.gitlab_milestones\
+            prev_milestone = milestone.gitlab_project.gitlab_milestones \
                 .filter(priority__gt=milestone_priority).first()
             if prev_milestone is not None:
                 milestone.priority = prev_milestone.priority

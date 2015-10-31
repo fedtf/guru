@@ -47,6 +47,13 @@
                 {% if user.is_authenticated   %}
                     <li><a href="{% url 'HuskyJamGuru:project-list' %}">Projects</a></li>
                     <li><a href="" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
+                    <li><a href="{% url 'HuskyJamGuru:personal-plan' %}" id="plan">Plan
+                        {% if PLAN_IS_FULFILLED %}
+                            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                        {% else %}
+                            <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
+                        {% endif %}
+                    </a></li>
                     {% if user.is_superuser %}
                         <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
                     {% endif %}

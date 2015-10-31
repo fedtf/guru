@@ -276,3 +276,55 @@ class IssueTypeUpdate(models.Model):
 
         self.project = self.gitlab_issue.gitlab_project.project
         super(IssueTypeUpdate, self).save(*args, **kwargs)
+
+
+class PersonalDayWorkPlan(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
+    date = models.DateField()
+    work_hours = models.IntegerField()
+    creation_time = models.DateTimeField(auto_now=True)
+    is_actual = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_actual:
+            actual_previous = PersonalDayWorkPlan.objects.filter(
+                user=self.user,
+                date=self.date,
+                is_actual=True
+            )
+            if self.id:
+                actual_previous.filter(creation_time__lt=self.creation_time)
+            actual_previous = actual_previous.all()
+            for previous in actual_previous:
+                if previous is not self:
+                    previous.is_actual = False
+                    previous.save()
+        return super(PersonalDayWorkPlan, self).save(*args, **kwargs)
+
+    @staticmethod
+    def get_work_plan(user, from_date, to_date):
+        work_plans_per_day = PersonalDayWorkPlan.objects.filter(
+            user=user,
+            date__gte=from_date,
+            date__lte=to_date,
+            is_actual=True
+        ).order_by('creation_time').all()
+        return work_plans_per_day
+
+    @staticmethod
+    def get_amount_of_unceasingly_planned_days(user, from_date):
+        work_plans_per_day = PersonalDayWorkPlan.objects.filter(
+            user=user,
+            is_actual=True
+        ).filter(date__gte=from_date).order_by('date').all()
+        days = 0
+        day_without_plan_found = False
+        last_day = from_date
+        for work_plan in work_plans_per_day:
+            if not day_without_plan_found and last_day != work_plan.date:
+                if last_day + datetime.timedelta(days=1) < work_plan.date:
+                    day_without_plan_found = True
+                else:
+                    days += 1
+                    last_day = work_plan.date
+        return days

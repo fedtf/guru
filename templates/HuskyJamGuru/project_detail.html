@@ -312,19 +312,6 @@
             }
         });
 
-
-        {#            ///Костыль для того, чтобы сделать зону, куда будут переноситься задачки такой же высоты, как маелстоун.#}
-        {#            $('.milestone').each(#}
-        {#                function() {#}
-        {#                    $(this).find('.drop-row').each(#}
-        {#                        function(){#}
-        {#                            $(this).css("background-color","red");#}
-        {#                            $(this).find(".dropable:not(:contains(.panel))").css("background-color","blue");#}
-        {#                        }#}
-        {#                    )#}
-        {#                }#}
-        {#            );#}
-
         setTimeout(updateTaskPositions, 5000);
     }
     </script>
