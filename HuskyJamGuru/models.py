@@ -437,9 +437,10 @@ class IssueTypeUpdate(models.Model):
 
 class TelegramUser(models.Model):
     EVENTS = (
-        ('issue', 'New Issue Creations'),
+        ('issue_create', 'Issue Opening'),
+        ('issue_close', 'Issue Closing'),
         ('note', 'New Comments'),
-        ('merge_request', 'New Merge Requests'),
+        ('push', 'Push Events'),
     )
 
     user = models.OneToOneField(User, related_name='telegram_user')
