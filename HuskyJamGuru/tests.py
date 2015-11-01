@@ -365,6 +365,7 @@ class ProjectUpdateTest(TestCase):
 
         data = {
             'name': 'test_name',
+            'status': 'presale',
             'issues_types': 'cool, nice, the best',
             'work_start_date': new_date_string
         }
@@ -378,6 +379,7 @@ class ProjectUpdateTest(TestCase):
     def test_columns_saves_correctly(self):
         data = {
             'name': 'test_name',
+            'status': 'presale',
             'issues_types': 'cool, nice, the best'
         }
         data.update(self.get_inline_work_form_data())
@@ -391,6 +393,7 @@ class ProjectUpdateTest(TestCase):
 
         data = {
             'name': 'test_name',
+            'status': 'presale',
             'issues_types': 'cool, nice, the best',
         }
         data.update(self.get_inline_work_form_data())

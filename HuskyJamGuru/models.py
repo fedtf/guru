@@ -9,7 +9,16 @@ from django.core.urlresolvers import reverse
 
 
 class Project(models.Model):
+    STATUS_CHOISES = (
+        ('presale', 'Presale'),
+        ('in-development', 'In development'),
+        ('finished', 'Finished'),
+    )
+
     name = models.CharField(max_length=500, default="")
+    status = models.CharField(
+        max_length=100, choices=STATUS_CHOISES, blank=False, null=False, default=STATUS_CHOISES[0]
+    )
     creation_date = models.DateField(auto_now=True)
     work_start_date = models.DateField(null=True, blank=True)
     deadline_date = models.DateField(null=True, blank=True)

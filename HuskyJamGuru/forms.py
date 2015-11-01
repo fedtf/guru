@@ -19,7 +19,7 @@ class ProjectForm(ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'work_start_date', 'deadline_date', 'issues_types']
+        fields = ['name', 'status', 'work_start_date', 'deadline_date', 'issues_types']
 
 
 ProjectFormSet = inlineformset_factory(

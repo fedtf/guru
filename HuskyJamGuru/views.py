@@ -14,7 +14,7 @@ from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue, \
-    GitLabMilestone, PersonalDayWorkPlan, WorkTimeEvaluation
+    GitLabMilestone, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
 
 
@@ -158,10 +158,6 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
         else:
             context['formset'] = ProjectFormSet(instance=self.object)
         return context
-
-    # def form_invalid(self, form):
-    #     print(form.errors)
-    #     return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
         message = 'Project successfully updated!'
