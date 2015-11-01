@@ -10,8 +10,9 @@ from django.core.urlresolvers import reverse
 
 class Project(models.Model):
     name = models.CharField(max_length=500, default="")
-    creation_date = models.DateField()
-    finish_date_assessment = models.DateField()
+    creation_date = models.DateField(auto_now=True)
+    work_start_date = models.DateField(null=True, blank=True)
+    deadline_date = models.DateField(null=True, blank=True)
     issues_types = models.TextField(default='open, in progress, fixed, verified')
 
     @property
@@ -28,9 +29,12 @@ class Project(models.Model):
         report_list = []
         verified = 0
         issues_number = self.issues.count()
-        end_date = min(timezone.now().date(), self.finish_date_assessment)
-        for i in range((end_date - self.creation_date).days + 1):
-            date = self.creation_date + datetime.timedelta(days=i)
+        if self.deadline_date is None:
+            end_date = timezone.now().date()
+        else:
+            end_date = min(timezone.now().date(), self.deadline_date)
+        for i in range((end_date - self.work_start_date).days + 1):
+            date = self.work_start_date + datetime.timedelta(days=i)
             verified += self.issues_type_updates.filter(time__contains=date,
                                                         type='verified').count()
             report_list.append({'date': date, 'issues': issues_number - verified})
@@ -42,11 +46,35 @@ class Project(models.Model):
         internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
         return tuple(zip(internal_list, external_list))
 
+    @property
+    def summary_work_time_evaluated_time(self):
+        return 10
+
+    @property
+    def finish_time_evaluation_based_on_work_time_evaluation(self):
+        return self.work_start_date + datetime.timedelta(days=7)
+
     def __str__(self):
         return self.name
 
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
+
+
+class WorkTimeEvaluation(models.Model):
+
+    TYPE_CHOICES = (
+        ('markup', 'Markup'),
+        ('backend', 'Backend'),
+        ('ux', 'UX'),
+        ('business-analyse', 'Business Analyse'),
+        ('design', 'Design'),
+        ('management', 'Management'),
+    )
+
+    project = models.ForeignKey(Project, related_name="work_time_evaluation")
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
+    time = models.IntegerField()
 
 
 class UserToProjectAccess(models.Model):

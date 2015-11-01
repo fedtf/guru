@@ -15,6 +15,7 @@
     <link href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.5/darkly/bootstrap.min.css" rel="stylesheet">
     <!-- Custom styles for this template -->
     <link href={% static "main.css" %} rel="stylesheet">
+    <link href={% static "css/bootstrap-datepicker3.css" %} rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -24,6 +25,7 @@
 
     <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
     <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <script src={% static "js/bootstrap-datepicker.js" %}></script>
     {% block preload %}
     {% endblock %}
 </head>
@@ -47,7 +49,7 @@
                 {% if user.is_authenticated   %}
                     <li><a href="{% url 'HuskyJamGuru:project-list' %}">Projects</a></li>
                     <li><a href="" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
-                    <li><a href="{% url 'HuskyJamGuru:personal-plan' %}" id="plan">Plan
+                    <li><a href="{% url 'HuskyJamGuru:personal-plan' %}" id="plan">Personal plan
                         {% if PLAN_IS_FULFILLED %}
                             <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
                         {% else %}
@@ -55,10 +57,11 @@
                         {% endif %}
                     </a></li>
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
+                        <li><a href="{% url 'admin:index' %}">System administration</a></li>
                     {% endif %}
                     {% if user.is_superuser %}
                         <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
+                        <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
                     {% endif %}
                 {% endif %}
             </ul>
@@ -73,6 +76,7 @@
     </div>
 </nav>
 <div class="container">
+    {% bootstrap_messages form layout='horizontal' %}
     {% block content %}
     {% endblock %}
     <div style="color: #949494; font-size: 0.9em;" class="text-center">{{ VERSION_DESCRIPTION }}</div>

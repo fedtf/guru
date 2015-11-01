@@ -1,9 +1,33 @@
 {% extends 'base.html' %}
+{% load bootstrap3 %}
 
 {% block content %}
-    <form method="post" action=".">
-        {{ form }}
-        {% csrf_token %}
-        <input type="submit" value="Submit">
-    </form>
+    <h1>Project "{{ object }}" details</h1>
+    <br>
+    <div class="panel panel-default form-panel">
+        <div class="panel-body">
+            <form action="." method="post" class="form-horizontal">
+                {% csrf_token %}
+                {% bootstrap_form form layout='horizontal' %}
+                {% bootstrap_form formset.management_form layout='horizontal' %}
+                <h3>Evaluations:</h3>
+                <div class="form-horizontal">
+                    {% for formset_form in formset %}
+                        {% bootstrap_form formset_form layout='horizontal' %}
+                    {% endfor %}
+                </div>
+                {% buttons submit='Save' layout='horizontal' %}{% endbuttons %}
+            </form>
+        </div>
+    </div>
+
+    <script>
+        $('#id_deadline_date').datepicker({
+            format: "yyyy-mm-dd"
+        });
+        $('#id_work_start_date').datepicker({
+            format: "yyyy-mm-dd"
+        });
+    </script>
+
 {% endblock %}

@@ -1,14 +1,34 @@
 from datetime import datetime, timedelta
 
+from django.forms.models import inlineformset_factory
 from django.forms import ModelForm, Form, ChoiceField
 
-from .models import Project
+from .models import Project, WorkTimeEvaluation
+
+
+class WorkTimeEvaluationForm(ModelForm):
+    class Meta:
+        model = WorkTimeEvaluation
+        fields = ['type', 'time']
 
 
 class ProjectForm(ModelForm):
+    inlines = [
+        WorkTimeEvaluationForm,
+    ]
+
     class Meta:
         model = Project
-        fields = ['name']
+        fields = ['name', 'work_start_date', 'deadline_date', 'issues_types']
+
+
+ProjectFormSet = inlineformset_factory(
+    Project,
+    WorkTimeEvaluation,
+    form=WorkTimeEvaluationForm,
+    fields=('type', 'time',),
+    extra=1
+)
 
 
 class PersonalPlanForm(Form):

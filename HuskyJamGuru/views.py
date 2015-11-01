@@ -7,13 +7,15 @@ from django.http import HttpResponse
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
+from django.contrib import messages
+from django.http import HttpResponseRedirect
 
 from braces import views as braces_views
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue, \
-    GitLabMilestone, PersonalDayWorkPlan
-from .forms import PersonalPlanForm
+    GitLabMilestone, PersonalDayWorkPlan, WorkTimeEvaluation
+from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
 
 
 def milestones_fix(request):
@@ -35,6 +37,22 @@ class LoginAsGuruUserView(FormView):
 
     def form_invalid(self, form):
         return self.render_to_response(self.get_context_data(form=form))
+
+
+class ResourceManagementView(braces_views.LoginRequiredMixin, braces_views.SuperuserRequiredMixin, TemplateView):
+    template_name = 'HuskyJamGuru/resource_management.html'
+
+    def get_context_data(self, **kwargs):
+        context = super(ResourceManagementView, self).get_context_data(**kwargs)
+        dates = ()
+        last_date = datetime.datetime.today().date() - datetime.timedelta(days=7)
+        for i in range(21):
+            dates += (last_date, )
+            last_date += datetime.timedelta(days=1)
+        context['today'] = datetime.datetime.today().date()
+        context['dates'] = dates
+        context['projects'] = Project.objects.all()
+        return context
 
 
 class PersonalPlanUpdateView(braces_views.LoginRequiredMixin, FormView):
@@ -67,6 +85,8 @@ class PersonalPlanUpdateView(braces_views.LoginRequiredMixin, FormView):
         return super(PersonalPlanUpdateView, self).form_valid(form)
 
     def get_success_url(self):
+        message = 'Plan successfully updated!'
+        messages.add_message(self.request, messages.SUCCESS, message)
         return reverse_lazy('HuskyJamGuru:personal-plan')
 
 
@@ -118,19 +138,44 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
                         braces_views.UserPassesTestMixin,
                         UpdateView):
     model = Project
-    fields = ['finish_date_assessment', 'issues_types']
+    form_class = ProjectForm
     template_name = 'HuskyJamGuru/project_update.html'
 
     def test_func(self, user):
         return (user.is_superuser or
                 'manager' in user.gitlabauthorisation.to_project_access_types(self.get_object()))
 
-    def get_form(self, form_class):
+    def get_form(self, form_class=None):
         form = super(ProjectUpdateView, self).get_form(form_class)
-        form.fields['finish_date_assessment'].help_text = 'e.g. 2015-10-8'
-        form.fields['finish_date_assessment'].required = False
+        form.fields['deadline_date'].required = False
         form.fields['issues_types'].required = False
         return form
+
+    def get_context_data(self, **kwargs):
+        context = super(ProjectUpdateView, self).get_context_data(**kwargs)
+        if self.request.POST:
+            context['formset'] = ProjectFormSet(self.request.POST, instance=self.object)
+        else:
+            context['formset'] = ProjectFormSet(instance=self.object)
+        return context
+
+    # def form_invalid(self, form):
+    #     print(form.errors)
+    #     return HttpResponseRedirect(self.get_success_url())
+
+    def get_success_url(self):
+        message = 'Project successfully updated!'
+        messages.add_message(self.request, messages.SUCCESS, message)
+        return reverse_lazy('HuskyJamGuru:project-update', kwargs={'pk': self.object.id})
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['formset']
+        self.object = form.save(commit=True)
+        formset.instance = self.object
+        if formset.is_valid():
+            formset.save(commit=True)
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class SortMilestonesView(braces_views.LoginRequiredMixin,

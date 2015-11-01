@@ -1,5 +1,5 @@
 body {
-  padding-top: 70px;
+    padding-top: 70px;
 }
 
 .login-window {
@@ -30,4 +30,17 @@ body {
 
 .milestone {
     display: flex;
+}
+
+.container {
+    width: 95%;
+}
+
+.resource-management-panel {
+    overflow: scroll;
+}
+
+.form-panel {
+    width: 800px;
+    margin: auto;
 }
