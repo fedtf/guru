@@ -13,6 +13,7 @@ from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLab
 
 
 def create_data():
+    # creates data
     project = Project(name='testproject', creation_date=timezone.now(),
                       finish_date_assessment=timezone.now())
     project.save()
