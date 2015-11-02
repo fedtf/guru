@@ -278,3 +278,13 @@ class WorkReportListView(braces_views.LoginRequiredMixin,
         for user in queryset:
             user.time_spent_records = user.issues_time_spent_records.all()[:6]
         return queryset
+
+
+class PersonalTimeReportView(braces_views.LoginRequiredMixin,
+                             braces_views.SuperuserRequiredMixin,
+                             braces_views.PrefetchRelatedMixin,
+                             DetailView):
+    model = get_user_model()
+    template_name = 'HuskyJamGuru/personal_time_report.html'
+    context_object_name = 'report_user'
+    prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']

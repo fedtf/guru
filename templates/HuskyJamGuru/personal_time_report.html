@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load divide %}
+
+{% block preload %}
+    <style>
+        #issues-heading, #calendar-heading {
+            border-bottom: 1px solid #fff;  
+            padding:10px 0;
+        }
+        #issues-container, #calendar-container {
+            border: 1px solid #fff;
+            padding: 0;
+        }
+        #issues-panel {
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .username-header {
+            margin:17px 0 13px;
+        }
+        .week-header {
+            margin-top: 20px;
+        }
+        .week {
+            position: relative;
+            height:360px;
+            margin-top: 45px;
+        }
+        .week .hours {
+            position: absolute;
+            height: 100%;
+            z-index: 10;
+            right:107%;
+            top: -10px;
+        }
+        .week .hours .hour {
+            position: absolute;
+        }
+        #hour1 { top:0; }
+        #hour6 { top:90px; }
+        #hour12 { top:180px; }
+        #hour18 { top:270px; }
+        #hour24 { top:360px; }
+        .week .day {
+            width: 13%;
+            height:100%;
+            margin: 0 4px;
+            border-right: 1px solid #fff;
+            border-left: 1px solid #fff;
+        }
+        .week .day .day-header {
+            position: relative;
+            bottom: 40px;
+        }
+        .week .day .time-spent {
+            position: absolute;
+            background: green;
+            width: 100%;
+            left:0;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <div class="page-header text-center username-header">
+        <h1>{{ report_user.gitlabauthorisation.name }}</h1>
+    </div>
+    <div class="row">
+        <div id="issues-container" class="col-lg-3">
+            <div id="issues-heading" class="text-center">
+                <small>Issues execution history</small>
+            </div>
+            <div id="issues-panel" class="col-lg-12">
+                {% with current_issue=report_user.gitlabauthorisation.current_issue  %}
+                    {% if current_issue %}
+                        <div class="panel panel-warning">
+                            <div class="panel-heading">
+                                <div class="row">
+                                    <div class="col-lg-5">
+                                        <a target="_blank" href="{{ current_issue.link }}" class="issue-name">{{ current_issue.name }}</a>
+                                        <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minute{{ current_issue.spent_minutes|pluralize }}</small>)
+                                    </div>
+                                    <div class="col-lg-7">
+                                        <small>
+                                            Start: {{ current_issue.current_type.time|date:"Y-j-n G:i" }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <small>Milestone: </small>
+                                <a target="_blank" href="{{ current_issue.gitlab_milestone.get_absolute_url }}">
+                                    <small class="milestone-name">{{ current_issue.gitlab_milestone.name }}</small><br/>
+                                </a>
+                                <small>Project: </small>
+                                <a target="_blank" href="{{ current_issue.gitlab_milestone.gitlab_project.project.get_absolute_url }}">
+                                <small class="gitlab-project-name">{{ current_issue.gitlab_milestone.gitlab_project.name }}</small><br/>
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                {% for time_record in report_user.issues_time_spent_records.all %}
+                <div class="panel panel-success">
+                    <div class="panel-heading">
+                        <div class="row">
+                            <div class="col-lg-5">
+                                <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
+                                <br>(<small class="issue-heading-time">{{ time_record.seconds|divide:"60" }} minute{{ time_record.seconds|divide:"60"|pluralize }}</small>)
+                            </div>
+                            <div class="col-lg-7">
+                                <small>
+                                    Start: {{ time_record.time_start|date:"Y-n-j G:i" }}<br/>
+                                    {% if time_record.time_stop %}
+                                    Stop: {{ time_record.time_stop|date:"Y-n-j G:i" }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <small>Milestone: </small>
+                        <a target="_blank" href="{{ time_record.gitlab_issue.gitlab_milestone.get_absolute_url }}">
+                            <small class="milestone-name">{{time_record.gitlab_issue.gitlab_milestone.name }}</small><br/>
+                        </a>
+                        <small>Project: </small>
+                        <a target="_blank" href="{{ time_record.gitlab_issue.gitlab_milestone.gitlab_project.project.get_absolute_url }}">
+                        <small class="gitlab-project-name">{{time_record.gitlab_issue.gitlab_milestone.gitlab_project.name }}</small><br/>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div id="calendar-container" class="col-lg-9">
+            <div id="calendar-heading" class="text-center col-lg-12">
+                <small>Time History</small>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="calendar-for-copying" style="display:none">
+    <div class="week-container text-center col-lg-11 col-lg-offset-1">
+        <h4 class="week-header"></h4>
+        <div class="week">
+            <div class="hours">
+                <div id="hour0" class="hour">00:00</div>
+                <div id="hour6" class="hour">6:00</div>
+                <div id="hour12" class="hour">12:00</div>
+                <div id="hour18" class="hour">18:00</div>
+                <div id="hour24" class="hour">24:00</div>
+            </div>
+            <div class="col-lg-1 day Monday">
+                <h5 class="day-header">Monday</h5>
+            </div>
+            <div class="col-lg-1 day Tuesday">
+                <h5 class="day-header">Tuesday</h5>
+            </div>
+            <div class="col-lg-1 day Wednesday">
+                <h5 class="day-header">Wednesday</h5>
+            </div>
+            <div class="col-lg-1 day Thursday">
+                <h5 class="day-header">Thursday</h5>
+            </div>
+            <div class="col-lg-1 day Friday">
+                <h5 class="day-header">Friday</h5>
+            </div>
+            <div class="col-lg-1 day Saturday">
+                <h5 class="day-header">Saturday</h5>
+            </div>
+            <div class="col-lg-1 day Sunday">
+                <h5 class="day-header">Sunday</h5>
+            </div>
+        </div>
+    </div>
+</div>
+    <script>
+        $(function() {
+            $('#issues-container').outerHeight($(window).height() - $('.navbar').outerHeight() - parseInt($('.navbar').css('marginBottom')) - 
+                $('.username-header').outerHeight() - parseInt($('.username-header').css('marginBottom')) - $(window).height()/25);
+            $('#issues-panel').outerHeight($('#issues-container').height() - $('#issues-heading').outerHeight());
+            
+            for (var i = 0; i < time_spent_records.length; i++) {
+                week = time_spent_records[i];    
+                var weekCalendar = new Calendar(week);
+                $('#calendar-container').append(weekCalendar.getElement());
+            }
+        })
+    
+    var time_spent_records = [
+        {% for week in report_user.gitlabauthorisation.weekly_time_spent_records %}
+        {
+            startDate: new Date({{ week.start_date|date:"Y, n-1, j" }}),
+            endDate: new Date({{ week.end_date|date:"Y, n-1, j" }}),
+            records: [
+                {% for record in week.records %}
+                {
+                    startTime: new Date({{ record.time_start|date:"Y, n-1, j, G, i" }}),
+                    duration: {{ record.seconds|divide:"60" }}, 
+                    issue: '{{ record.gitlab_issue.name }}',
+                },
+                {% endfor %}
+            ],
+        },
+        {% endfor %}
+    ]
+
+    function Calendar(week) {
+        this.startDate = week.startDate;
+        this.endDate = week.endDate;
+        this.records = week.records;
+        var self = this;
+
+        function render() {
+            var totalMinutes = 0;
+
+            for (var i = 0; i < self.records.length; i++) {
+                record = self.records[i];
+                totalMinutes += record.duration;
+            }
+
+            var hours = Math.floor(totalMinutes/60);
+            var minutes = totalMinutes - hours*60;
+
+            var summary = hours + ':' + minutes;
+
+            var weekContainer = $('#calendar-for-copying').children().first().clone();
+            weekContainer.find('.week-header').text(self.startDate.getDate() + '.' + (self.startDate.getMonth()+1) + ' - ' +
+                    + self.endDate.getDate() + '.' + (self.endDate.getMonth()+1) + ' (Summary: ' + summary + ')');
+            var week = weekContainer.find('.week');
+
+            for (var i = 0; i < self.records.length; i++) {
+                appendRecordToWeek(self.records[i], week);
+            }
+
+            return weekContainer;
+        }
+
+        function appendRecordToWeek(record, weekElem) {
+            if (record.startTime.getHours()*60 + record.startTime.getMinutes() + record.duration > 1440) {
+                // create new record if this overlaps midnight
+                var oldDuration = record.duration;
+                record.duration = 1440 - record.startTime.getHours()*60 - record.startTime.getMinutes();
+
+                var newRecord = {
+                    'issue': record.issue,
+                    'startTime': new Date(record.startTime.getFullYear(), record.startTime.getMonth(), record.startTime.getDate()+1),
+                    'duration': oldDuration - record.duration,
+                };
+                if (newRecord.startTime.getDay() != 1) {
+                    appendRecordToWeek(newRecord, weekElem);
+                } else {
+                    for (var i = 0; i < issues_time_spent_records.length; i++) {
+                        var week = issues_time_spent_records[i];
+                        if (week.startDate = newRecord.startTime) {
+                            week.records.append(newRecord);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            var durationText = Math.floor(record.duration/60) + ':' + (record.duration - Math.floor(record.duration/60)*60);
+            var elemHeight = Math.max(Math.round(record.duration/4), 1);
+            var elemBottom = startTimeToBottomHeight(record.startTime);
+
+            var recordElem = $('<div class="time-spent">').html(durationText + '<br/>' + record.issue)
+                                                          .height(elemHeight)
+                                                          .css('bottom', elemBottom);
+            weekElem.find('.' + weekDays[record.startTime.getDay()]).append(recordElem);
+        }
+
+        function startTimeToBottomHeight(startTime) {
+            var totalMinutes = startTime.getHours()*60 + startTime.getMinutes();
+            return Math.round(totalMinutes/4);
+        } 
+
+        this.getElement = function() {
+            var elem = render();
+            return elem;
+        }
+    }
+    </script>
+{% endblock %}

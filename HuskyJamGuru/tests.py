@@ -6,9 +6,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView, \
-    ProjectUpdateView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone, \
+from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
+    ProjectUpdateView, PersonalTimeReportView
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalDayWorkPlan
 
 
@@ -564,3 +564,97 @@ class TestWorkPlans(TestCase):
 
         days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 5, 11))
         self.assertEqual(days, 2)
+
+
+class PersonalTimeReportTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+
+        self.report_user = get_user_model().objects.create_user(username='reportuser', password='report')
+        mile, _, _ = create_data()
+        new_project = mile.gitlab_project.project
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.project = new_project
+        self.page_url = '/personal-time-report/{}/'.format(self.report_user.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, PersonalTimeReportView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/personal_time_report.html')
+
+    def test_page_redirects_to_login_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, '/login?next={}'.format(self.page_url))
+
+    def test_right_user_object_in_context(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.context['report_user'], self.report_user)
+
+    def test_work_report_list_contains_link_to_personal_time_report(self):
+        response = self.client.get('/work-report-list/')
+        self.assertContains(response, self.page_url)
+
+    def test_weekly_time_spent_records(self):
+        mile = self.project.gitlab_projects.first().gitlab_milestones.first()
+        issue = GitLabIssue.objects.create(gitlab_milestone=mile,
+                                           gitlab_issue_id=5,
+                                           gitlab_issue_iid=6,
+                                           gitlab_project=self.project.gitlab_projects.first())
+        record1 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                                      time_start=datetime.datetime(2015, 7, 8))
+        record2 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                                      time_start=datetime.datetime(2015, 7, 10))
+        record3 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                                      time_start=datetime.datetime(2015, 9, 22))
+        record4 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                                      time_start=datetime.datetime(2015, 9, 24))
+        record5 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
+                                                      time_start=datetime.datetime(2015, 9, 26))
+
+        week1 = {
+            'start_date': datetime.date(2015, 7, 6),
+            'end_date': datetime.date(2015, 7, 12),
+            'records': [
+                record1,
+                record2,
+            ]
+        }
+        week2 = {
+            'start_date': datetime.date(2015, 9, 21),
+            'end_date': datetime.date(2015, 9, 27),
+            'records': [
+                record3,
+                record4,
+                record5,
+            ]
+        }
+
+        found_week1 = False
+        found_week2 = False
+
+        weekly_records = self.user.gitlabauthorisation.weekly_time_spent_records
+        for week in weekly_records:
+            if week['start_date'] == week1['start_date'] and week['end_date'] == week1['end_date']:
+                found_week1 = True
+                self.assertEqual(week['records'].count(), 2)
+                for record in week1['records']:
+                    self.assertIn(record, week['records'])
+            elif week['start_date'] == week2['start_date'] and week['end_date'] == week2['end_date']:
+                found_week2 = True
+                self.assertEqual(week['records'].count(), 3)
+                for record in week2['records']:
+                    self.assertIn(record, week['records'])
+
+        self.assertTrue(found_week1)
+        self.assertTrue(found_week2)
