@@ -23,7 +23,6 @@ from .telegram_bot import telegram_bot
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def milestones_fix(request):
@@ -271,8 +270,7 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
 
 class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
     def post(self, request, *args, **kwargs):
-        with open('debug-log.txt', 'a') as f:
-            print('got webhook from gitlab {}, {}'.format(request.POST, request.body), file=f)
+        logger.info('got webhook from gitlab {}, {}'.format(request.POST, request.body))
 
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))

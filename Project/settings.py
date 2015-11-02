@@ -148,13 +148,10 @@ LOGGING = {
             'format': "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
             'datefmt': "%d/%b/%Y %H/%M/%S",
         },
-        'simple': {
-            'format': '%(levelname)s %(message)s',
-        }
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': 'django.log',
             'formatter': 'verbose',
@@ -163,12 +160,18 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file'],
-            'propagate': True,
             'level': 'INFO',
+            'propagate': True,
         },
         'HuskyJamGuru': {
             'handlers': ['file'],
             'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }

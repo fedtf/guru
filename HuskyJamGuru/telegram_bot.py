@@ -1,22 +1,31 @@
+import logging
+
 from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
 
 from telegram import Bot
 
-from Project.settings import TELEGRAM_BOT_TOKEN
 from .models import GitlabProject
+
+
+logger = logging.getLogger(__name__)
 
 
 class HuskyJamGuruBot(Bot):
     def send_notifications(self, webhook_info):
         webhook_type = webhook_info['object_kind']
 
-        gitlab_project_id = webhook_info['object_attributes']['project_id']
+        if webhook_type == 'push':
+            gitlab_project_id = webhook_info['project_id']
+        else:
+            gitlab_project_id = webhook_info['object_attributes']['project_id']
+
         try:
             project = GitlabProject.objects.get(project_id=gitlab_project_id).project
         except ObjectDoesNotExist:
-            with open('debug-log.txt', 'a') as f:
-                print(gitlab_project_id, file=f)
-                print(GitlabProject.objects.values_list('project_id', flat=True), file=f)
+            logger.info(gitlab_project_id)
+            logger.info(GitlabProject.objects.values_list('project_id', flat=True))
+            return
 
         message_text = ''
         if webhook_type == 'note':
@@ -45,6 +54,7 @@ class HuskyJamGuruBot(Bot):
                                                                                  webhook_info['user']['name'])
         if message_text:
             for user in set(access.user for access in project.user_project_accesses.all()):
+                logger.info('{}: {}'.format(user, message_text))
                 try:
                     telegram_user = user.telegram_user
                 except ObjectDoesNotExist:
@@ -53,4 +63,4 @@ class HuskyJamGuruBot(Bot):
                     telegram_bot.sendMessage(chat_id=telegram_user.telegram_id, text=message_text)
 
 
-telegram_bot = HuskyJamGuruBot(token=TELEGRAM_BOT_TOKEN)
+telegram_bot = HuskyJamGuruBot(token=settings.TELEGRAM_BOT_TOKEN)
