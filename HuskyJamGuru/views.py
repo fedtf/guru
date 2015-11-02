@@ -51,7 +51,7 @@ class ResourceManagementView(braces_views.LoginRequiredMixin, braces_views.Super
             last_date += datetime.timedelta(days=1)
         context['today'] = datetime.datetime.today().date()
         context['dates'] = dates
-        context['projects'] = Project.objects.all()
+        context['projects'] = Project.objects.filter(status='in-development').all()
         return context
 
 

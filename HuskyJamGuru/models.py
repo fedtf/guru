@@ -1,11 +1,28 @@
 import datetime
 
+from django.utils.functional import cached_property
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.utils import timezone
 from django.core.urlresolvers import reverse
+
+
+class WorkTimeEvaluation(models.Model):
+
+    TYPE_CHOICES = (
+        ('markup', 'Markup'),
+        ('backend', 'Backend'),
+        ('ux', 'UX'),
+        ('business-analyse', 'Business Analyse'),
+        ('design', 'Design'),
+        ('management', 'Management'),
+    )
+
+    project = models.ForeignKey('Project', related_name="work_time_evaluation")
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
+    time = models.IntegerField()
 
 
 class Project(models.Model):
@@ -34,6 +51,14 @@ class Project(models.Model):
         return issues
 
     @property
+    def developers(self):
+        developers = []
+        accesses = UserToProjectAccess.objects.filter(project=self, type='developer').all()
+        for access in accesses:
+            developers.append(access.user)
+        return developers
+
+    @property
     def report_list(self):
         report_list = []
         verified = 0
@@ -55,35 +80,51 @@ class Project(models.Model):
         internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
         return tuple(zip(internal_list, external_list))
 
-    @property
-    def summary_work_time_evaluated_time(self):
-        return 10
+    @cached_property
+    def summary_work_time_evaluated_time_in_hours(self):
+        summary = 0
+        work_time_evaluations = WorkTimeEvaluation.objects.filter(project=self).all()
+        for work_time_evaluation in work_time_evaluations:
+            summary += work_time_evaluation.time
+        return summary
 
-    @property
+    @cached_property
     def finish_time_evaluation_based_on_work_time_evaluation(self):
-        return self.work_start_date + datetime.timedelta(days=7)
+        if self.work_start_date < datetime.datetime.today().date():
+            medium_work_time_per_day_summ = 0
+            developers = self.developers
+            for developer in developers:
+                medium_work_time_per_day_summ += self.get_user_work_time(
+                    developer, None, self.work_start_date, datetime.datetime.today().date()
+                )
+            project_work_days_amount = (datetime.datetime.today().date() - self.work_start_date).days
+            medium_work_time_per_day = round(medium_work_time_per_day_summ / 60) / project_work_days_amount
+            hours_left = self.summary_work_time_evaluated_time_in_hours - medium_work_time_per_day_summ / 60
+            days_left = hours_left / medium_work_time_per_day
+            return datetime.datetime.today().date() + datetime.timedelta(days=days_left)
 
     def __str__(self):
         return self.name
 
+    def get_user_work_time(self, user, date, from_date=None, to_date=None):
+        seconds = 0
+        if from_date is None or to_date is None:
+            from_date = date
+            to_date = date
+        min_time = datetime.datetime.combine(from_date, datetime.datetime.min.time())
+        max_time = datetime.datetime.combine(to_date, datetime.datetime.max.time())
+        time_records = IssueTimeSpentRecord.objects.filter(
+            user=user,
+            gitlab_issue__gitlab_project__project=self,
+            time_start__range=(min_time, max_time),
+            time_stop__range=(min_time, max_time)
+        ).all()
+        for time_record in time_records:
+            seconds += time_record.seconds
+        return round(seconds / 60)
+
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
-
-
-class WorkTimeEvaluation(models.Model):
-
-    TYPE_CHOICES = (
-        ('markup', 'Markup'),
-        ('backend', 'Backend'),
-        ('ux', 'UX'),
-        ('business-analyse', 'Business Analyse'),
-        ('design', 'Design'),
-        ('management', 'Management'),
-    )
-
-    project = models.ForeignKey(Project, related_name="work_time_evaluation")
-    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
-    time = models.IntegerField()
 
 
 class UserToProjectAccess(models.Model):

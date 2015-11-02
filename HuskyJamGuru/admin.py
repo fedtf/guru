@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
 from .models import Project, GitlabProject, UserToProjectAccess, GitlabAuthorisation, GitLabIssue, GitLabMilestone, \
-    GitLabBuild, GitLabMR, IssueTypeUpdate, PersonalDayWorkPlan, WorkTimeEvaluation
+    GitLabBuild, GitLabMR, IssueTypeUpdate, PersonalDayWorkPlan, WorkTimeEvaluation, IssueTimeSpentRecord
 
 
 class UserToProjectAccessForm(ModelForm):
@@ -44,3 +44,4 @@ admin.site.register(GitLabMR)
 admin.site.register(IssueTypeUpdate)
 admin.site.register(PersonalDayWorkPlan)
 admin.site.register(WorkTimeEvaluation)
+admin.site.register(IssueTimeSpentRecord)

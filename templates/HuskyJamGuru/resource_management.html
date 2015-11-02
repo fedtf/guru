@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load staticfiles %}
 {% load bootstrap3 %}
+{% load project_users_work_time %}
 
 {% block content %}
     <h3>Resource management</h3>
@@ -47,45 +48,41 @@
                                 {% if project.deadline_date == date %}
                                     <span class="glyphicon glyphicon-fire" aria-hidden="true"></span>
                                 {% endif %}
-                                {% if project.deadline_date == date %}
-                                    <span class="glyphicon glyphicon-equalizer" aria-hidden="true"></span>
-                                {% endif %}
+{#                                {% if project.deadline_date == date %}#}
+{#                                    <span class="glyphicon glyphicon-equalizer" aria-hidden="true"></span>#}
+{#                                {% endif %}#}
                             </td>
                         {% endfor %}
-                        {#                        <td></td>#}
-                        {#                        <td></td>#}
-                        {#                        <td></td>#}
-                        {#                        <td></td>#}
-                        {#                        <td>0%<br><span class="glyphicon glyphicon-play" aria-hidden="true"></span></td>#}
-                        {#                        <td>2% </td>#}
-                        {#                        <td></td>#}
-                        {#                        <td></td>#}
-                        {#                        <td>11%<br></be><span class="glyphicon glyphicon-equalizer" aria-hidden="true"></span></td>#}
-                        {#                        <td>13%</td>#}
-                        {#                        <td>14%<br><span class="glyphicon glyphicon-time" aria-hidden="true"></span></td>#}
-                        {#                        <td></td>#}
-                        {#                        <td><br><span class="glyphicon glyphicon-fire" aria-hidden="true"></span></td>#}
-
                     </tr>
+                    {% for developer in project.developers %}
+                        <tr>
+                            <td style="font-size: 0.7em; white-space: nowrap; ">{{ developer.gitlabauthorisation.name }}</td>
+                            {% for date in dates %}
+                                <td style="font-size: 0.9em; white-space: nowrap;">
+                                    {% project_users_work_times project developer date %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
                 {% endfor %}
-                <tr>
-                    <td style="font-size: 0.7em; white-space: nowrap; ">Роман Ефремов</td>
-                    <td>4</td>
-                    <td>4</td>
-                    <td>2</td>
-                    <td>8</td>
-                    <td>3</td>
-                    <td>4</td>
-                </tr>
-                <tr>
-                    <td style="font-size: 0.7em; white-space: nowrap; ">Анна Шахбазян</td>
-                    <td>3/4</td>
-                    <td>4/4</td>
-                    <td>3/2</td>
-                    <td>7/8</td>
-                    <td>2/3</td>
-                    <td>3/4</td>
-                </tr>
+                {#                <tr>#}
+                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Роман Ефремов</td>#}
+                {#                    <td>4</td>#}
+                {#                    <td>4</td>#}
+                {#                    <td>2</td>#}
+                {#                    <td>8</td>#}
+                {#                    <td>3</td>#}
+                {#                    <td>4</td>#}
+                {#                </tr>#}
+                {#                <tr>#}
+                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Анна Шахбазян</td>#}
+                {#                    <td>3/4</td>#}
+                {#                    <td>4/4</td>#}
+                {#                    <td>3/2</td>#}
+                {#                    <td>7/8</td>#}
+                {#                    <td>2/3</td>#}
+                {#                    <td>3/4</td>#}
+                {#                </tr>#}
                 </tbody>
             </table>
         </div>
