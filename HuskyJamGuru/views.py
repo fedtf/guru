@@ -1,14 +1,16 @@
 import logging
 import uuid
 import json
+import datetime
 
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect
+from django.contrib import messages
+from django.shortcuts import redirect, render
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
 
@@ -18,7 +20,8 @@ from rest_framework.reverse import reverse as full_path_reverse_lazy
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
-    GitLabMilestone, GitlabProject, TelegramUser
+    GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
+from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
 from .telegram_bot import telegram_bot
 
 
@@ -44,6 +47,57 @@ class LoginAsGuruUserView(FormView):
 
     def form_invalid(self, form):
         return self.render_to_response(self.get_context_data(form=form))
+
+
+class ResourceManagementView(braces_views.LoginRequiredMixin, braces_views.SuperuserRequiredMixin, TemplateView):
+    template_name = 'HuskyJamGuru/resource_management.html'
+
+    def get_context_data(self, **kwargs):
+        context = super(ResourceManagementView, self).get_context_data(**kwargs)
+        dates = ()
+        last_date = datetime.datetime.today().date() - datetime.timedelta(days=7)
+        for i in range(21):
+            dates += (last_date, )
+            last_date += datetime.timedelta(days=1)
+        context['today'] = datetime.datetime.today().date()
+        context['dates'] = dates
+        context['projects'] = Project.objects.filter(status='in-development').all()
+        return context
+
+
+class PersonalPlanUpdateView(braces_views.LoginRequiredMixin, FormView):
+    template_name = 'HuskyJamGuru/personal_plan.html'
+    form_class = PersonalPlanForm
+
+    def get_initial(self):
+        initial = super(PersonalPlanUpdateView, self).get_initial()
+        work_plans = PersonalDayWorkPlan.get_work_plan(
+            self.request.user,
+            datetime.datetime.today().date() + datetime.timedelta(days=1),
+            datetime.datetime.today() + datetime.timedelta(days=7 + 1)
+        )
+        for work_plan in work_plans:
+            initial[
+                'day_%i' % (work_plan.date - datetime.datetime.today().date() - datetime.timedelta(days=1)).days
+            ] = work_plan.work_hours
+        return initial
+
+    def form_valid(self, form):
+        for i in range(7):
+            date = datetime.datetime.today() + datetime.timedelta(days=i + 1)
+            current_work_plan = PersonalDayWorkPlan.get_work_plan(self.request.user, date, date)
+            if not form.cleaned_data['day_%s' % i] == '':
+                if len(current_work_plan) == 0 or \
+                        current_work_plan[0].work_hours != int(form.cleaned_data['day_%s' % i]):
+                    PersonalDayWorkPlan(
+                        user=self.request.user, date=date, work_hours=int(form.cleaned_data['day_%s' % i])
+                    ).save()
+        return super(PersonalPlanUpdateView, self).form_valid(form)
+
+    def get_success_url(self):
+        message = 'Plan successfully updated!'
+        messages.add_message(self.request, messages.SUCCESS, message)
+        return reverse_lazy('HuskyJamGuru:personal-plan')
 
 
 class ProjectListView(ListView):
@@ -137,19 +191,40 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
                         braces_views.UserPassesTestMixin,
                         UpdateView):
     model = Project
-    fields = ['finish_date_assessment', 'issues_types']
+    form_class = ProjectForm
     template_name = 'HuskyJamGuru/project_update.html'
 
     def test_func(self, user):
         return (user.is_superuser or
                 'manager' in user.gitlabauthorisation.to_project_access_types(self.get_object()))
 
-    def get_form(self, form_class):
+    def get_form(self, form_class=None):
         form = super(ProjectUpdateView, self).get_form(form_class)
-        form.fields['finish_date_assessment'].help_text = 'e.g. 2015-10-8'
-        form.fields['finish_date_assessment'].required = False
+        form.fields['deadline_date'].required = False
         form.fields['issues_types'].required = False
         return form
+
+    def get_context_data(self, **kwargs):
+        context = super(ProjectUpdateView, self).get_context_data(**kwargs)
+        if self.request.POST:
+            context['formset'] = ProjectFormSet(self.request.POST, instance=self.object)
+        else:
+            context['formset'] = ProjectFormSet(instance=self.object)
+        return context
+
+    def get_success_url(self):
+        message = 'Project successfully updated!'
+        messages.add_message(self.request, messages.SUCCESS, message)
+        return reverse_lazy('HuskyJamGuru:project-update', kwargs={'pk': self.object.id})
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['formset']
+        self.object = form.save(commit=True)
+        formset.instance = self.object
+        if formset.is_valid():
+            formset.save(commit=True)
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class SortMilestonesView(braces_views.LoginRequiredMixin,
@@ -168,7 +243,7 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
         milestone_priority = milestone.priority
 
         if direction == 'up':
-            next_milestone = milestone.gitlab_project.gitlab_milestones\
+            next_milestone = milestone.gitlab_project.gitlab_milestones \
                 .filter(priority__lt=milestone_priority).last()
             if next_milestone is not None:
                 milestone.priority = next_milestone.priority
@@ -177,7 +252,7 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
                 milestone.save()
                 next_milestone.save()
         elif direction == 'down':
-            prev_milestone = milestone.gitlab_project.gitlab_milestones\
+            prev_milestone = milestone.gitlab_project.gitlab_milestones \
                 .filter(priority__gt=milestone_priority).first()
             if prev_milestone is not None:
                 milestone.priority = prev_milestone.priority

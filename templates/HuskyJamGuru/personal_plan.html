@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load bootstrap3 %}
+
+{% block content %}
+    <h3>Personal plan</h3>
+    <br>
+    <div class="panel panel-default form-panel">
+        <div class="panel-body">
+            <form action="" method="post" class="form-horizontal">
+                {% csrf_token %}
+                {% bootstrap_form form layout='horizontal' %}
+                {% buttons submit='Save' layout='horizontal' %}{% endbuttons %}
+            </form>
+        </div>
+    </div>
+{% endblock %}

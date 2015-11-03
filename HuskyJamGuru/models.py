@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 
+from django.utils.functional import cached_property
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
@@ -48,10 +49,36 @@ class GitlabSynchronizeMixin(object):
             return cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path), push_data)
 
 
+class WorkTimeEvaluation(models.Model):
+
+    TYPE_CHOICES = (
+        ('markup', 'Markup'),
+        ('backend', 'Backend'),
+        ('ux', 'UX'),
+        ('business-analyse', 'Business Analyse'),
+        ('design', 'Design'),
+        ('management', 'Management'),
+    )
+
+    project = models.ForeignKey('Project', related_name="work_time_evaluation")
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES)
+    time = models.IntegerField()
+
+
 class Project(models.Model):
+    STATUS_CHOISES = (
+        ('presale', 'Presale'),
+        ('in-development', 'In development'),
+        ('finished', 'Finished'),
+    )
+
     name = models.CharField(max_length=500, default="")
-    creation_date = models.DateField()
-    finish_date_assessment = models.DateField()
+    status = models.CharField(
+        max_length=100, choices=STATUS_CHOISES, blank=False, null=False, default=STATUS_CHOISES[0]
+    )
+    creation_date = models.DateField(auto_now=True)
+    work_start_date = models.DateField(null=True, blank=True)
+    deadline_date = models.DateField(null=True, blank=True)
     issues_types = models.TextField(default='open, in progress, fixed, verified')
 
     @app.task(filter=task_method, name="Project.update_from_gitlab")
@@ -69,13 +96,24 @@ class Project(models.Model):
         return issues
 
     @property
+    def developers(self):
+        developers = []
+        accesses = UserToProjectAccess.objects.filter(project=self, type='developer').all()
+        for access in accesses:
+            developers.append(access.user)
+        return developers
+
+    @property
     def report_list(self):
         report_list = []
         verified = 0
         issues_number = self.issues.count()
-        end_date = min(timezone.now().date(), self.finish_date_assessment)
-        for i in range((end_date - self.creation_date).days + 1):
-            date = self.creation_date + datetime.timedelta(days=i)
+        if self.deadline_date is None:
+            end_date = timezone.now().date()
+        else:
+            end_date = min(timezone.now().date(), self.deadline_date)
+        for i in range((end_date - self.work_start_date).days + 1):
+            date = self.work_start_date + datetime.timedelta(days=i)
             verified += self.issues_type_updates.filter(time__contains=date,
                                                         type='verified').count()
             report_list.append({'date': date, 'issues': issues_number - verified})
@@ -87,8 +125,48 @@ class Project(models.Model):
         internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
         return tuple(zip(internal_list, external_list))
 
+    @cached_property
+    def summary_work_time_evaluated_time_in_hours(self):
+        summary = 0
+        work_time_evaluations = WorkTimeEvaluation.objects.filter(project=self).all()
+        for work_time_evaluation in work_time_evaluations:
+            summary += work_time_evaluation.time
+        return summary
+
+    @cached_property
+    def finish_time_evaluation_based_on_work_time_evaluation(self):
+        if self.work_start_date < datetime.datetime.today().date():
+            medium_work_time_per_day_summ = 0
+            developers = self.developers
+            for developer in developers:
+                medium_work_time_per_day_summ += self.get_user_work_time(
+                    developer, None, self.work_start_date, datetime.datetime.today().date()
+                )
+            project_work_days_amount = (datetime.datetime.today().date() - self.work_start_date).days
+            medium_work_time_per_day = round(medium_work_time_per_day_summ / 60) / project_work_days_amount
+            hours_left = self.summary_work_time_evaluated_time_in_hours - medium_work_time_per_day_summ / 60
+            days_left = hours_left / medium_work_time_per_day
+            return datetime.datetime.today().date() + datetime.timedelta(days=days_left)
+
     def __str__(self):
         return self.name
+
+    def get_user_work_time(self, user, date, from_date=None, to_date=None):
+        seconds = 0
+        if from_date is None or to_date is None:
+            from_date = date
+            to_date = date
+        min_time = datetime.datetime.combine(from_date, datetime.datetime.min.time())
+        max_time = datetime.datetime.combine(to_date, datetime.datetime.max.time())
+        time_records = IssueTimeSpentRecord.objects.filter(
+            user=user,
+            gitlab_issue__gitlab_project__project=self,
+            time_start__range=(min_time, max_time),
+            time_stop__range=(min_time, max_time)
+        ).all()
+        for time_record in time_records:
+            seconds += time_record.seconds
+        return round(seconds / 60)
 
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
@@ -148,20 +226,22 @@ class GitlabAuthorisation(models.Model):
         weekly_records = []
         records = self.user.issues_time_spent_records.all()
 
-        earliest_record = records.last()
-        monday_of_first_week = earliest_record.time_start.date() - \
-            datetime.timedelta(days=earliest_record.time_start.weekday())
-        for i in range(0, (timezone.now().date() - monday_of_first_week).days + 1, 7):
-            start_date = monday_of_first_week + datetime.timedelta(days=i)
-            end_date = start_date + datetime.timedelta(days=6)
-            week_records = records.filter(time_start__gte=start_date).filter(time_start__lte=end_date)
+        if records:
+            earliest_record = records.last()
+            monday_of_first_week = earliest_record.time_start.date() - \
+                datetime.timedelta(days=earliest_record.time_start.weekday())
+            for i in range(0, (timezone.now().date() - monday_of_first_week).days + 1, 7):
+                start_date = monday_of_first_week + datetime.timedelta(days=i)
+                end_date = start_date + datetime.timedelta(days=6)
+                week_records = records.filter(time_start__gte=start_date).filter(time_start__lte=end_date)
 
-            week = {}
-            week['start_date'] = start_date
-            week['end_date'] = end_date
-            week['records'] = week_records
-            weekly_records.append(week)
+                week = {}
+                week['start_date'] = start_date
+                week['end_date'] = end_date
+                week['records'] = week_records
+                weekly_records.append(week)
 
+            weekly_records.reverse()
         return weekly_records
 
     @property
@@ -450,3 +530,55 @@ class TelegramUser(models.Model):
 
     def __str__(self):
         return self.user.username
+
+
+class PersonalDayWorkPlan(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
+    date = models.DateField()
+    work_hours = models.IntegerField()
+    creation_time = models.DateTimeField(auto_now=True)
+    is_actual = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_actual:
+            actual_previous = PersonalDayWorkPlan.objects.filter(
+                user=self.user,
+                date=self.date,
+                is_actual=True
+            )
+            if self.id:
+                actual_previous.filter(creation_time__lt=self.creation_time)
+            actual_previous = actual_previous.all()
+            for previous in actual_previous:
+                if previous is not self:
+                    previous.is_actual = False
+                    previous.save()
+        return super(PersonalDayWorkPlan, self).save(*args, **kwargs)
+
+    @staticmethod
+    def get_work_plan(user, from_date, to_date):
+        work_plans_per_day = PersonalDayWorkPlan.objects.filter(
+            user=user,
+            date__gte=from_date,
+            date__lte=to_date,
+            is_actual=True
+        ).order_by('creation_time').all()
+        return work_plans_per_day
+
+    @staticmethod
+    def get_amount_of_unceasingly_planned_days(user, from_date):
+        work_plans_per_day = PersonalDayWorkPlan.objects.filter(
+            user=user,
+            is_actual=True
+        ).filter(date__gte=from_date).order_by('date').all()
+        days = 0
+        day_without_plan_found = False
+        last_day = from_date
+        for work_plan in work_plans_per_day:
+            if not day_without_plan_found and last_day != work_plan.date:
+                if last_day + datetime.timedelta(days=1) < work_plan.date:
+                    day_without_plan_found = True
+                else:
+                    days += 1
+                    last_day = work_plan.date
+        return days

@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load staticfiles %}
+{% load bootstrap3 %}
+{% load project_users_work_time %}
+
+{% block content %}
+    <h3>Resource management</h3>
+    <br>
+    <div class="panel panel-default resource-management-panel">
+        <div class="panel-body">
+            <table class="table table-bordered">
+                <thead>
+                <tr>
+                    <th>Project</th>
+                    {% for date in dates %}
+                        {% if date == today %}
+                            <th class="danger">{{ date|date:"d/m" }}</th>
+                        {% else %}
+                            {% if date|date:"D" == 'Mon' %}
+                                <th class="warning">{{ date|date:"d/m" }}</th>
+                            {% else %}
+                                <th>{{ date|date:"d/m" }}</th>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                </thead>
+                <tbody>
+                {% for project in projects %}
+                    <tr class="success">
+                        <td style="white-space: nowrap;">
+                            <a href="{% url 'HuskyJamGuru:project-detail' project.pk %}" >
+                                <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span>
+                            </a>
+                            <a href="{% url 'HuskyJamGuru:project-update' project.pk %}" >
+                                <span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
+                            </a>
+                            {{ project.name }}
+                        </td>
+                        {% for date in dates %}
+                            <td style="font-size: 0.9em; white-space: nowrap;">
+                                {% if project.work_start_date == date %}
+                                    <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                {% endif %}
+                                {% if project.finish_time_evaluation_based_on_work_time_evaluation == date %}
+                                    <span class="glyphicon glyphicon-time" aria-hidden="true"></span>
+                                {% endif %}
+                                {% if project.deadline_date == date %}
+                                    <span class="glyphicon glyphicon-fire" aria-hidden="true"></span>
+                                {% endif %}
+{#                                {% if project.deadline_date == date %}#}
+{#                                    <span class="glyphicon glyphicon-equalizer" aria-hidden="true"></span>#}
+{#                                {% endif %}#}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% for developer in project.developers %}
+                        <tr>
+                            <td style="font-size: 0.7em; white-space: nowrap; ">{{ developer.gitlabauthorisation.name }}</td>
+                            {% for date in dates %}
+                                <td style="font-size: 0.9em; white-space: nowrap;">
+                                    {% project_users_work_times project developer date %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+                {#                <tr>#}
+                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Роман Ефремов</td>#}
+                {#                    <td>4</td>#}
+                {#                    <td>4</td>#}
+                {#                    <td>2</td>#}
+                {#                    <td>8</td>#}
+                {#                    <td>3</td>#}
+                {#                    <td>4</td>#}
+                {#                </tr>#}
+                {#                <tr>#}
+                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Анна Шахбазян</td>#}
+                {#                    <td>3/4</td>#}
+                {#                    <td>4/4</td>#}
+                {#                    <td>3/2</td>#}
+                {#                    <td>7/8</td>#}
+                {#                    <td>2/3</td>#}
+                {#                    <td>3/4</td>#}
+                {#                </tr>#}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

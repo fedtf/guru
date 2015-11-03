@@ -1,10 +1,12 @@
 from django.conf.urls import url, include
 from Project import settings
 
+
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
     synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
     LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView,\
-    CheckIfTaskIsDoneView, telegram_webhook, set_webhook, UserProfileView, GitlabWebhookView
+    CheckIfTaskIsDoneView, telegram_webhook, set_webhook, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
+    ResourceManagementView
 
 
 urlpatterns = [
@@ -13,6 +15,8 @@ urlpatterns = [
     url(r'^$', ProjectListView.as_view(), name='project-list'),
     url(r'^synchronise-with-gitlab/$', synchronise_with_gitlab, name='synchronise-with-gitlab'),
     url(r'^project-detail/(?P<pk>\d+)/$', ProjectDetailView.as_view(), name='project-detail'),
+    url(r'^resource-management/$', ResourceManagementView.as_view(), name='resource-management'),
+    url(r'^personal-plan/$', PersonalPlanUpdateView.as_view(), name='personal-plan'),
     url(r'^project-update/(?P<pk>\d+)/$', ProjectUpdateView.as_view(), name='project-update'),
     url(r'^project-report/(?P<pk>\d+)/$', ProjectReportView.as_view(), name='project-report'),
     url(r'^personal-time-report/(?P<pk>\d+)/$', PersonalTimeReportView.as_view(), name='personal-time-report'),

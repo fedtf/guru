@@ -1,5 +1,5 @@
 body {
-  padding-top: 70px;
+    padding-top: 70px;
 }
 
 .login-window {
@@ -8,12 +8,13 @@ body {
 }
 
 .dropable {
-	min-height: 100px;
+	min-height: 100%;
 }
 
 .drop-row {
     min-height:100% !important; /* browser fill */
     height:auto;
+    display: flex;
 }
 
 .box-shadow {
@@ -25,4 +26,21 @@ body {
 .panel-heading a {
     color: #ffffff;
     text-decoration: underline;
+}
+
+.milestone {
+    display: flex;
+}
+
+.container {
+    width: 95%;
+}
+
+.resource-management-panel {
+    overflow: scroll;
+}
+
+.form-panel {
+    width: 800px;
+    margin: auto;
 }

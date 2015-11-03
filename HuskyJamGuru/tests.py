@@ -9,13 +9,12 @@ from django.contrib.auth.forms import AuthenticationForm
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView, PersonalTimeReportView, UserProfileView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser, PersonalDayWorkPlan
 
 
 def create_data():
-    # creates new data
     project = Project(name='testproject', creation_date=timezone.now(),
-                      finish_date_assessment=timezone.now())
+                      work_start_date=timezone.now())
     project.save()
 
     gitlab_project = GitlabProject(name='gitlabtestproject', gitlab_id=4,
@@ -235,7 +234,7 @@ class ProjectReportTest(TestCase):
         self.client.login(username='test', password='testpass')
         new_project = Project.objects.create(name='testproject',
                                              creation_date=timezone.now(),
-                                             finish_date_assessment=timezone.now())
+                                             work_start_date=timezone.now())
         self.page_url = '/project-report/{}/'.format(new_project.pk)
 
     def test_url_resolves_to_project_report_view(self):
@@ -254,8 +253,8 @@ class ProjectReportTest(TestCase):
         today = timezone.now().date()
 
         new_project = Project(name="test_project")
-        new_project.creation_date = today - datetime.timedelta(days=4)
-        new_project.finish_date_assessment = timezone.now().date()
+        new_project.work_start_date = today - datetime.timedelta(days=4)
+        new_project.deadline_date = timezone.now().date()
         new_project.save()
 
         new_gitlab_project = GitlabProject(name="test_gitlab_project")
@@ -307,6 +306,15 @@ class ProjectReportTest(TestCase):
 
 
 class ProjectUpdateTest(TestCase):
+
+    def get_inline_work_form_data(self):
+        return {
+            'work_time_evaluation-TOTAL_FORMS': 1,
+            'work_time_evaluation-INITIAL_FORMS': 0,
+            'work_time_evaluation-MIN_NUM_FORMS': 0,
+            'work_time_evaluation-MAX_NUM_FORMS': 1000
+        }
+
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
@@ -314,7 +322,7 @@ class ProjectUpdateTest(TestCase):
         self.client.login(username='test', password='testpass')
         mile, _, _ = create_data()
         new_project = mile.gitlab_project.project
-        new_project.finish_date_assessment = new_project.creation_date + datetime.timedelta(days=3)
+        new_project.work_start_date = new_project.creation_date + datetime.timedelta(days=3)
         new_project.save()
         self.project = new_project
         self.page_url = '/project-update/{}/'.format(self.project.pk)
@@ -351,16 +359,29 @@ class ProjectUpdateTest(TestCase):
         self.assertContains(response, self.page_url)
 
     def test_date_updates_after_post(self):
-        new_date = (self.project.creation_date + datetime.timedelta(days=3)).date()
+        new_date = self.project.work_start_date + datetime.timedelta(days=3)
         new_date_string = new_date.strftime('%Y-%m-%d')
-        self.client.post(self.page_url, {'finish_date_assessment': new_date_string})
+
+        data = {
+            'name': 'test_name',
+            'status': 'presale',
+            'issues_types': 'cool, nice, the best',
+            'work_start_date': new_date_string
+        }
+        data.update(self.get_inline_work_form_data())
+
+        self.client.post(self.page_url, data)
+
         project = Project.objects.get(pk=self.project.pk)
-        self.assertEqual(project.finish_date_assessment, new_date)
+        self.assertEqual(project.work_start_date, new_date)
 
     def test_columns_saves_correctly(self):
         data = {
+            'name': 'test_name',
+            'status': 'presale',
             'issues_types': 'cool, nice, the best'
         }
+        data.update(self.get_inline_work_form_data())
 
         self.client.post(self.page_url, data)
         project = Project.objects.get(pk=self.project.pk)
@@ -368,9 +389,13 @@ class ProjectUpdateTest(TestCase):
         self.assertEqual(project.issues_types, 'cool, nice, the best')
 
     def test_project_returns_correct_issues_types_tuple(self):
+
         data = {
-            'issues_types': 'cool, nice, the best'
+            'name': 'test_name',
+            'status': 'presale',
+            'issues_types': 'cool, nice, the best',
         }
+        data.update(self.get_inline_work_form_data())
 
         self.client.post(self.page_url, data)
         project = Project.objects.get(pk=self.project.pk)
@@ -502,6 +527,44 @@ class TestLoginAsGuruUser(TestCase):
         self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
 
 
+class TestWorkPlans(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='test',
+            password='testpass',
+            email='testuser@example.com'
+        )
+
+        # Записываем разные планы на один день, последний должен перекрыть предыдущие
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=1).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=3).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=2).save()
+
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 11), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 12), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 13), work_hours=4).save()
+
+    def test_getting(self):
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 3, 10))
+        self.assertQuerysetEqual(work_plan, PersonalDayWorkPlan.objects.none())
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 10))
+        self.assertEqual(len(work_plan), 1)
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 11))
+
+        self.assertEqual(len(work_plan), 2)
+        self.assertEqual(work_plan[0].work_hours, 2)
+        self.assertEqual(work_plan[1].work_hours, 4)
+
+    def test_getting_borders(self):
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 3, 11))
+        self.assertEqual(days, 0)
+
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 5, 11))
+        self.assertEqual(days, 2)
+
+
 class PersonalTimeReportTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
@@ -575,6 +638,9 @@ class PersonalTimeReportTest(TestCase):
                 record5,
             ]
         }
+
+        found_week1 = False
+        found_week2 = False
 
         weekly_records = self.user.gitlabauthorisation.weekly_time_spent_records
         for week in weekly_records:
