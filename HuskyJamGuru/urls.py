@@ -5,8 +5,8 @@ from Project import settings
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
     synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
     LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView,\
-    CheckIfTaskIsDoneView, telegram_webhook, set_webhook, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
-    ResourceManagementView
+    CheckIfTaskIsDoneView, telegram_webhook, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
+    ResourceManagementView, ChangeUserNotificationStateView
 
 
 urlpatterns = [
@@ -25,7 +25,11 @@ urlpatterns = [
     url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
     url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),
     url(r'^check-if-task-is-done/$', CheckIfTaskIsDoneView.as_view(), name='check-if-task-is-done'),
-    url(r'set-telegram-webhook/$', set_webhook, name='set-telegram-webhook'),
+    url(
+        r'^change-user-notification-state/(?P<user_pk>\d+)$',
+        ChangeUserNotificationStateView.as_view(),
+        name='change-user-notification-state'
+    ),
     url(r'^{}'.format(settings.TELEGRAM_BOT_TOKEN), telegram_webhook, name='telegram-webhook'),
     url(r'^gitlab-webhook', GitlabWebhookView.as_view(), name='gitlab_webhook'),
     url(

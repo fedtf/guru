@@ -6,11 +6,11 @@ import datetime
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect, HttpResponseBadRequest
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
 
@@ -366,6 +366,29 @@ def set_webhook(request):
     return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
 
 
+class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
+                                      braces_views.UserPassesTestMixin,
+                                      View):
+    raise_exception = True
+
+    def test_func(self, user):
+        try:
+            self.telegram_user = user.telegram_user
+        except ObjectDoesNotExist:
+            return False
+
+        return str(user.pk) == self.kwargs.get('user_pk')
+
+    def post(self, request, *args, **kwargs):
+        new_state = request.POST.get('new_state')
+        logger.info(new_state)
+        if new_state:
+            task = telegram_bot.change_user_notification_state.delay(new_state, self.telegram_user)
+            return HttpResponse(task.id)
+        else:
+            return HttpResponseBadRequest()
+
+
 class UserProfileView(braces_views.LoginRequiredMixin,
                       braces_views.UserPassesTestMixin,
                       UpdateView):
@@ -389,11 +412,3 @@ class UserProfileView(braces_views.LoginRequiredMixin,
         form = super(UserProfileView, self).get_form(form_class)
         form['notification_events'].label = 'Choose kinds of events that you whant to be notified about:'
         return form
-
-    def post(self, request, *args, **kwargs):
-        if request.POST.get('notification_enabled') == 'False':
-            request.user.telegram_user.notification_enabled = False
-            request.user.telegram_user.save()
-            return redirect(self.success_url)
-        else:
-            return super(UserProfileView, self).post(request, *args, **kwargs)

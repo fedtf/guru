@@ -57,11 +57,14 @@
                         {% endif %}
                     </a></li>
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'admin:index' %}">System administration</a></li>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
-                        <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
+                        <li class="dropdown">
+                          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Admin features <span class="caret"></span></a>
+                          <ul class="dropdown-menu">
+                            <li><a href="{% url 'admin:index' %}">System administration</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
+                          </ul>
+                        </li>
                     {% endif %}
                 {% endif %}
             </ul>

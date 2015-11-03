@@ -1,11 +1,14 @@
 import logging
+import time
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 
 from telegram import Bot
+from celery.contrib.methods import task_method
 
 from .models import GitlabProject
+from Project.celery import app
 
 
 logger = logging.getLogger(__name__)
@@ -21,10 +24,9 @@ class HuskyJamGuruBot(Bot):
             gitlab_project_id = webhook_info['object_attributes']['project_id']
 
         try:
-            project = GitlabProject.objects.get(project_id=gitlab_project_id).project
+            project = GitlabProject.objects.get(gitlab_id=gitlab_project_id).project
         except ObjectDoesNotExist:
-            logger.info(gitlab_project_id)
-            logger.info(GitlabProject.objects.values_list('project_id', flat=True))
+            logger.info('Got webhook with unexisting project id: {}'.format(gitlab_project_id))
             return
 
         message_text = ''
@@ -54,13 +56,29 @@ class HuskyJamGuruBot(Bot):
                                                                                  webhook_info['user']['name'])
         if message_text:
             for user in set(access.user for access in project.user_project_accesses.all()):
-                logger.info('{}: {}'.format(user, message_text))
                 try:
                     telegram_user = user.telegram_user
                 except ObjectDoesNotExist:
                     continue
                 if telegram_user.notification_enabled and webhook_type in telegram_user.notification_events:
                     telegram_bot.sendMessage(chat_id=telegram_user.telegram_id, text=message_text)
+
+    @app.task(filter=task_method)
+    def change_user_notification_state(self, new_state, telegram_user):
+        if new_state == 'disabled':
+            telegram_user.notification_enabled = False
+            telegram_user.save()
+        elif new_state == 'enabled':
+            for i in range(10):
+                time.sleep(4)
+                for update in self.getUpdates():
+                    if telegram_user.telegram_id in update.message.text:
+                        telegram_user.telegram_id = update.message.from_user.id
+                        telegram_user.notification_enabled = True
+                        telegram_user.save()
+                        return
+            logger.info('Failed trying to subscribe user {} with id {}'.format(telegram_user,
+                                                                               telegram_user.telegram_id))
 
 
 telegram_bot = HuskyJamGuruBot(token=settings.TELEGRAM_BOT_TOKEN)
