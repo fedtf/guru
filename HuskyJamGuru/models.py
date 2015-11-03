@@ -1,6 +1,7 @@
 import datetime
 
 from django.utils.functional import cached_property
+from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
@@ -14,6 +15,7 @@ class WorkTimeEvaluation(models.Model):
     TYPE_CHOICES = (
         ('markup', 'Markup'),
         ('backend', 'Backend'),
+        ('testing', 'Testing'),
         ('ux', 'UX'),
         ('business-analyse', 'Business Analyse'),
         ('design', 'Design'),
@@ -90,18 +92,18 @@ class Project(models.Model):
 
     @cached_property
     def finish_time_evaluation_based_on_work_time_evaluation(self):
-        if self.work_start_date < datetime.datetime.today().date():
+        if self.work_start_date < timezone.datetime.today().date():
             medium_work_time_per_day_summ = 0
             developers = self.developers
             for developer in developers:
                 medium_work_time_per_day_summ += self.get_user_work_time(
-                    developer, None, self.work_start_date, datetime.datetime.today().date()
+                    developer, None, self.work_start_date, timezone.datetime.today().date()
                 )
-            project_work_days_amount = (datetime.datetime.today().date() - self.work_start_date).days
+            project_work_days_amount = (timezone.datetime.today().date() - self.work_start_date).days
             medium_work_time_per_day = round(medium_work_time_per_day_summ / 60) / project_work_days_amount
             hours_left = self.summary_work_time_evaluated_time_in_hours - medium_work_time_per_day_summ / 60
             days_left = hours_left / medium_work_time_per_day
-            return datetime.datetime.today().date() + datetime.timedelta(days=days_left)
+            return timezone.datetime.today().date() + datetime.timedelta(days=days_left)
 
     def __str__(self):
         return self.name
@@ -184,11 +186,23 @@ class GitlabAuthorisation(models.Model):
         if records:
             earliest_record = records.last()
             monday_of_first_week = earliest_record.time_start.date() - \
-                datetime.timedelta(days=earliest_record.time_start.weekday())
+                timezone.timedelta(days=earliest_record.time_start.weekday())
             for i in range(0, (timezone.now().date() - monday_of_first_week).days + 1, 7):
-                start_date = monday_of_first_week + datetime.timedelta(days=i)
-                end_date = start_date + datetime.timedelta(days=6)
-                week_records = records.filter(time_start__gte=start_date).filter(time_start__lte=end_date)
+                start_date = monday_of_first_week + timezone.timedelta(days=i)
+                end_date = start_date + timezone.timedelta(days=6)
+                week_records = records.filter(
+                    time_start__gte=timezone.make_aware(
+                        datetime.datetime.combine(
+                            start_date, timezone.datetime.min.time()
+                        ), timezone.get_current_timezone()
+                    ),
+                    time_start__lte=
+                    timezone.make_aware(
+                        datetime.datetime.combine(
+                            end_date, timezone.datetime.max.time()
+                        ), timezone.get_current_timezone()
+                    )
+                )
 
                 week = {}
                 week['start_date'] = start_date
@@ -343,7 +357,7 @@ class IssueTimeSpentRecord(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='issues_time_spent_records')
     gitlab_issue = models.ForeignKey(GitLabIssue, related_name='time_spent_records')
     time_start = models.DateTimeField()
-    time_stop = models.DateTimeField(blank=True, null=True)
+    time_stop = models.DateTimeField(auto_now=True)
 
     @property
     def seconds(self):
@@ -368,7 +382,6 @@ class IssueTypeUpdate(models.Model):
                     user=self.gitlab_issue.current_type.author,
                     gitlab_issue=self.gitlab_issue,
                     time_start=self.gitlab_issue.current_type.time,
-                    time_stop=datetime.datetime.now()
                 )
                 new_issue_time_spent_record.save()
             for previous in IssueTypeUpdate.objects.filter(gitlab_issue=self.gitlab_issue, is_current=True):

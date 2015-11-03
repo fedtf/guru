@@ -1,4 +1,5 @@
 import datetime
+from mock import patch
 
 from django.test import TestCase
 from django.core.urlresolvers import resolve, reverse
@@ -6,9 +7,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
+from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView, \
     ProjectUpdateView, PersonalTimeReportView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone, \
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalDayWorkPlan
 
 
@@ -42,11 +43,20 @@ class ProjectDetailTest(TestCase):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
         self.client.login(username='test', password='testpass')
-        mile, _, _ = create_data()
-        new_project = mile.gitlab_project.project
-        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.mile, _, _ = create_data()
+        new_project = self.mile.gitlab_project.project
+        self.gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
         self.project = new_project
         self.page_url = '/project-detail/{}/'.format(self.project.pk)
+
+        self.mocked_time = timezone.datetime(2012, 5, 18, tzinfo=timezone.get_current_timezone())
+
+        def now():
+            return self.mocked_time
+
+        patcher = patch('django.utils.timezone.now', now)
+        self.addCleanup(patcher.stop)
+        patcher.start()
 
     def test_url_resolves_to_right_view(self):
         found = resolve(self.page_url)
@@ -119,6 +129,42 @@ class ProjectDetailTest(TestCase):
         new_issue_link = "http://185.22.60.142:8889/core/proj/issues/new?issue%5Bmilestone_id%5D={}"
         new_milestone_gitlab_id = gitlab_project.gitlab_milestones.first().gitlab_milestone_id
         self.assertContains(response, new_issue_link.format(new_milestone_gitlab_id))
+
+    def test_user_work_time(self):
+        project = self.mile.gitlab_project.project
+
+        UserToProjectAccess.objects.create(user=self.user, project=project, type='developer')
+
+        issue = GitLabIssue.objects.create(
+            gitlab_issue_id=1, gitlab_project=self.mile.gitlab_project, gitlab_issue_iid=1
+        )
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 30, tzinfo=timezone.get_current_timezone())
+        issue_type_update = IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='open',
+            author=self.user,
+            project=self.project
+        )
+
+        issue_type_update = IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='in_progress',
+            author=self.user,
+            project=self.project
+        )
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 35, tzinfo=timezone.get_current_timezone())
+
+        issue_type_update = IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='open',
+            author=self.user,
+            project=self.project
+        )
+
+        print(issue.spent_minutes)
+        print(IssueTimeSpentRecord.objects.filter(gitlab_issue=issue).all()[0].seconds)
 
 
 class WorkReportListTest(TestCase):
@@ -611,16 +657,36 @@ class PersonalTimeReportTest(TestCase):
                                            gitlab_issue_id=5,
                                            gitlab_issue_iid=6,
                                            gitlab_project=self.project.gitlab_projects.first())
-        record1 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 7, 8))
-        record2 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 7, 10))
-        record3 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 22))
-        record4 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 24))
-        record5 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 26))
+        record1 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 7, 8, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record2 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 7, 10, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record3 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 22, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record4 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 24, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record5 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 26, tzinfo=timezone.get_current_timezone()
+            )
+        )
 
         week1 = {
             'start_date': datetime.date(2015, 7, 6),
