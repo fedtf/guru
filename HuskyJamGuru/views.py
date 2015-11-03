@@ -348,7 +348,7 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
 
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
-            telegram_bot.send_notifications(webhook_info).delay()
+            telegram_bot.send_notifications.delay(webhook_info)
         return HttpResponse()
 
 
