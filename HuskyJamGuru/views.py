@@ -12,7 +12,6 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.exceptions import ObjectDoesNotExist
-from django.views.decorators.csrf import csrf_exempt
 
 from braces import views as braces_views
 from celery.result import AsyncResult
@@ -21,7 +20,7 @@ from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fi
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
-from .telegram_bot import telegram_bot
+from .tasks import send_notifications, change_user_notification_state
 
 
 logger = logging.getLogger(__name__)
@@ -344,18 +343,10 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
 
 class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
     def post(self, request, *args, **kwargs):
-        logger.info('got webhook from gitlab {}, {}'.format(request.POST, request.body))
-
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
-            telegram_bot.send_notifications.delay(webhook_info)
+            send_notifications.delay(webhook_info)
         return HttpResponse()
-
-
-@csrf_exempt
-def telegram_webhook(request):
-    logger.info('got request webhook; {}'.format(request.body))
-    return HttpResponse()
 
 
 class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
@@ -375,7 +366,7 @@ class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
         new_state = request.POST.get('new_state')
         if new_state:
             logger.info(new_state)
-            task = telegram_bot.change_user_notification_state.delay(new_state, self.telegram_user)
+            task = change_user_notification_state.delay(new_state, self.telegram_user)
             return HttpResponse(task.id)
         else:
             return HttpResponseBadRequest()
