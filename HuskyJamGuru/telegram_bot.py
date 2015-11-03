@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class HuskyJamGuruBot(Bot):
+    @app.task(filter=task_method)
     def send_notifications(self, webhook_info):
         webhook_type = webhook_info['object_kind']
 
@@ -65,10 +66,12 @@ class HuskyJamGuruBot(Bot):
 
     @app.task(filter=task_method)
     def change_user_notification_state(self, new_state, telegram_user):
+        logger.info('trying to change notification state to {} of {}'.format(new_state, telegram_user))
         if new_state == 'disabled':
             telegram_user.notification_enabled = False
             telegram_user.save()
         elif new_state == 'enabled':
+            logger.info(self.getUpdates())
             for i in range(10):
                 time.sleep(4)
                 for update in self.getUpdates():

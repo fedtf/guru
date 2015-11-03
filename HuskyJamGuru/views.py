@@ -16,7 +16,6 @@ from django.views.decorators.csrf import csrf_exempt
 
 from braces import views as braces_views
 from celery.result import AsyncResult
-from rest_framework.reverse import reverse as full_path_reverse_lazy
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
@@ -349,7 +348,7 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
 
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
-            telegram_bot.send_notifications(webhook_info)
+            telegram_bot.send_notifications(webhook_info).delay()
         return HttpResponse()
 
 
@@ -357,13 +356,6 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
 def telegram_webhook(request):
     logger.info('got request webhook; {}'.format(request.body))
     return HttpResponse()
-
-
-def set_webhook(request):
-    full_path_for_webhook = full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request)
-    response = telegram_bot.setWebhook(full_path_for_webhook)
-    logger.info('set request webhook; response: {}'.format(response))
-    return HttpResponse(full_path_reverse_lazy('HuskyJamGuru:telegram-webhook', request=request))
 
 
 class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
