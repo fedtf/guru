@@ -373,8 +373,8 @@ class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
 
     def post(self, request, *args, **kwargs):
         new_state = request.POST.get('new_state')
-        logger.info(new_state)
         if new_state:
+            logger.info(new_state)
             task = telegram_bot.change_user_notification_state.delay(new_state, self.telegram_user)
             return HttpResponse(task.id)
         else:
