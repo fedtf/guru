@@ -351,7 +351,9 @@
             var issueDescription = issue.description;
             if (issueDescription.length > 200) { 
                 var indexAfterLastWord = issueDescription.indexOf(' ', 200);
-                issueDescription = issueDescription.substring(0, indexAfterLastWord) + '...';
+                if (indexAfterLastWord != -1) {
+                    issueDescription = issueDescription.substring(0, indexAfterLastWord) + '...';
+                }
             }
 
             panel.find(".issue-body").text(issueDescription);
