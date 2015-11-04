@@ -347,7 +347,14 @@
             }
             panel.find(".issue-name").text(issue.name);
             panel.find(".issue-name").attr("href", issue.link);
-            panel.find(".issue-body").text(issue.description);
+            
+            var issueDescription = issue.description;
+            if (issueDescription.length > 200) { 
+                var indexAfterLastWord = issueDescription.indexOf(' ', 200);
+                issueDescription = issueDescription.substring(0, indexAfterLastWord) + '...';
+            }
+
+            panel.find(".issue-body").text(issueDescription);
             var assigneeName = 'Unassigned';
             if (issue.assignee !== null) {
                 assigneeName = issue.assignee.name;
