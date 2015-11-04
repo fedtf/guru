@@ -52,6 +52,12 @@ class ResourceManagementView(braces_views.LoginRequiredMixin, braces_views.Super
         context['today'] = datetime.datetime.today().date()
         context['dates'] = dates
         context['projects'] = Project.objects.filter(status='in-development').all()
+        context['projects_per_user_amount'] = {}
+        accesses = UserToProjectAccess.objects.filter().all()
+        for access in accesses:
+            if not access.user in context['projects_per_user_amount']:
+                context['projects_per_user_amount'][access.user] = 0
+            context['projects_per_user_amount'][access.user] += 1
         return context
 
 

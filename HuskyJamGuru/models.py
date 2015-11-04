@@ -48,7 +48,6 @@ class Project(models.Model):
         issues = GitLabIssue.objects.none()
         gitlab_projects = self.gitlab_projects.all()
         for gitlab_project in gitlab_projects:
-            # will not work for sliced querysets
             issues = issues | gitlab_project.issues.all()
         return issues
 
@@ -59,6 +58,14 @@ class Project(models.Model):
         for access in accesses:
             developers.append(access.user)
         return developers
+
+    @property
+    def users(self):
+        users = []
+        accesses = UserToProjectAccess.objects.filter(project=self).all()
+        for access in accesses:
+            users.append(access.user)
+        return users
 
     @property
     def report_list(self):
@@ -109,7 +116,7 @@ class Project(models.Model):
         return self.name
 
     def get_user_work_time(self, user, date, from_date=None, to_date=None):
-        seconds = 0
+        time = timezone.timedelta()
         if from_date is None or to_date is None:
             from_date = date
             to_date = date
@@ -122,8 +129,8 @@ class Project(models.Model):
             time_stop__range=(min_time, max_time)
         ).all()
         for time_record in time_records:
-            seconds += time_record.seconds
-        return round(seconds / 60)
+            time += time_record.time_interval
+        return time
 
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
@@ -319,12 +326,11 @@ class GitLabIssue(models.Model):
             return None
 
     @property
-    def spent_minutes(self):
-        seconds = 0
+    def spent_time(self):
+        time = timezone.timedelta()
         for time_spent_record in IssueTimeSpentRecord.objects.filter(gitlab_issue=self).all():
-            seconds += time_spent_record.seconds
-        minutes = round(seconds / 60)
-        return minutes
+            time += time_spent_record.time_interval
+        return time
 
     @property
     def link(self):
@@ -360,8 +366,8 @@ class IssueTimeSpentRecord(models.Model):
     time_stop = models.DateTimeField(auto_now=True)
 
     @property
-    def seconds(self):
-        return (self.time_stop - self.time_start).total_seconds()
+    def time_interval(self):
+        return self.time_stop - self.time_start
 
     class Meta:
         ordering = ['-time_start']

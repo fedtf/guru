@@ -162,9 +162,8 @@ class ProjectDetailTest(TestCase):
             author=self.user,
             project=self.project
         )
-
-        print(issue.spent_minutes)
-        print(IssueTimeSpentRecord.objects.filter(gitlab_issue=issue).all()[0].seconds)
+        #
+        # print(issue.spent_minutes)
 
 
 class WorkReportListTest(TestCase):

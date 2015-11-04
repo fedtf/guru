@@ -29,13 +29,24 @@ class UserToProjectAccessForm(ModelForm):
         self.fields['user'].choices = choices
 
 
-class UserToProjectAccessAdmin(admin.ModelAdmin):
+class UserToProjectAccessInline(admin.TabularInline):
     form = UserToProjectAccessForm
+    model = UserToProjectAccess
+    extra = 0
 
 
-admin.site.register(Project)
 admin.site.register(GitlabProject)
-admin.site.register(UserToProjectAccess, UserToProjectAccessAdmin)
+admin.site.register(UserToProjectAccess)
+
+
+class ProjectAdmin(admin.ModelAdmin):
+    inlines = [
+        UserToProjectAccessInline,
+    ]
+
+admin.site.register(Project, ProjectAdmin)
+
+
 admin.site.register(GitlabAuthorisation)
 admin.site.register(GitLabMilestone)
 admin.site.register(GitLabIssue)
