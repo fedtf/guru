@@ -38,6 +38,8 @@
                     <small>Project report</small>
                 </a>
             {% endif %}
+            <label for="filter-unassigned">Only assigned</label>
+            <input type="checkbox" id="filter-unassigned" />
             <span data-item-name="project" data-item-pk="{{ project.pk }}" class="glyphicon glyphicon-refresh pull-right update-item-from-gitlab ">
             </span>
         </div>
@@ -135,8 +137,15 @@
             enableSortable(); 
             $('.milestone_up').on('click', function(e) {sortMilestiones('up', $(e.target).parents('.milestone-panel'))});
             $('.milestone_down').on('click', function(e) {sortMilestiones('down', $(e.target).parents('.milestone-panel'))});
+            $('#filter-unassigned').on('click', filterUnassigned)
             $(document).on('click', '.update-item-from-gitlab', UpdateItemFromGitlab)
         });
+
+        function filterUnassigned(e) {
+            var target = $(e.target);
+            var unassignedIssues = $('.unassigned-issue')
+            !!target.attr('checked') ? unassignedIssues.hide() : unassignedIssues.show();
+        }        
 
         function UpdateItemFromGitlab(e) {
             var target = $(e.target);
@@ -341,7 +350,14 @@
             panel.find(".issue-body").text(issue.description);
             var assigneeName = 'Unassigned';
             if (issue.assignee !== null) {
-                assigreeName = issue.assignee.name;
+                assigneeName = issue.assignee.name;
+                if (panel.hasClass('unassigned-issue')) {
+                    panel.removeClass('unassigned-issue');
+                    panel.show();
+                }
+            } else {
+                panel.addClass('unassigned-issue');
+                if ($('#filter-unassigned').attr('checked')) panel.hide(); 
             }
             panel.find(".issue-heading-time").text(issue.spent_minutes + ' minutes, ' + assigneeName);
             panel.attr('issue-pk', issue.pk);
