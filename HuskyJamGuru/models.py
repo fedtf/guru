@@ -330,6 +330,11 @@ class GitLabIssue(models.Model):
         time = timezone.timedelta()
         for time_spent_record in IssueTimeSpentRecord.objects.filter(gitlab_issue=self).all():
             time += time_spent_record.time_interval
+
+        print(self.current_type.type)
+
+        if self.current_type.type == 'in_progress':
+            time += timezone.now() - IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get().time
         return time
 
     @property

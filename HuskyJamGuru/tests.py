@@ -139,6 +139,8 @@ class ProjectDetailTest(TestCase):
             gitlab_issue_id=1, gitlab_project=self.mile.gitlab_project, gitlab_issue_iid=1
         )
 
+        # Передвинули задачу из Open в In Progress
+
         self.mocked_time = timezone.datetime(2012, 5, 20, 15, 30, tzinfo=timezone.get_current_timezone())
         issue_type_update = IssueTypeUpdate.objects.create(
             gitlab_issue=issue,
@@ -154,6 +156,8 @@ class ProjectDetailTest(TestCase):
             project=self.project
         )
 
+        # Через 5 минут обратно в Open
+
         self.mocked_time = timezone.datetime(2012, 5, 20, 15, 35, tzinfo=timezone.get_current_timezone())
 
         issue_type_update = IssueTypeUpdate.objects.create(
@@ -162,8 +166,25 @@ class ProjectDetailTest(TestCase):
             author=self.user,
             project=self.project
         )
-        #
-        # print(issue.spent_minutes)
+
+        # Проверим время
+
+        self.assertEqual(issue.spent_time, timezone.timedelta(minutes=5))
+
+        # Теперь обратно в In Progress
+
+        issue_type_update = IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='in_progress',
+            author=self.user,
+            project=self.project
+        )
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 40, tzinfo=timezone.get_current_timezone())
+
+        # Проверим время
+
+        self.assertEqual(issue.spent_time, timezone.timedelta(minutes=10))
 
 
 class WorkReportListTest(TestCase):
