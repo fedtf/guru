@@ -1,7 +1,6 @@
 import datetime
 
 from django.utils.functional import cached_property
-from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
@@ -203,8 +202,7 @@ class GitlabAuthorisation(models.Model):
                             start_date, timezone.datetime.min.time()
                         ), timezone.get_current_timezone()
                     ),
-                    time_start__lte=
-                    timezone.make_aware(
+                    time_start__lte=timezone.make_aware(
                         datetime.datetime.combine(
                             end_date, timezone.datetime.max.time()
                         ), timezone.get_current_timezone()
@@ -330,8 +328,6 @@ class GitLabIssue(models.Model):
         time = timezone.timedelta()
         for time_spent_record in IssueTimeSpentRecord.objects.filter(gitlab_issue=self).all():
             time += time_spent_record.time_interval
-
-        print(self.current_type.type)
 
         if self.current_type.type == 'in_progress':
             time += timezone.now() - IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get().time

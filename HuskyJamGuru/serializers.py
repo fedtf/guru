@@ -45,13 +45,14 @@ class TimedeltaField(serializers.Field):
     def to_representation(self, obj):
         return ':'.join(str(obj).split(':')[:3]).split('.')[0]
 
+
 class GitLabIssueSerializer(serializers.HyperlinkedModelSerializer):
     gitlab_milestone = serializers.PrimaryKeyRelatedField(
         many=False, read_only=True,
     )
     assignee = GitlabAuthorisationSerializer()
     current_type = IssueTypeUpdateSerializer()
-    spent_time=TimedeltaField()
+    spent_time = TimedeltaField()
 
     class Meta:
         model = GitLabIssue

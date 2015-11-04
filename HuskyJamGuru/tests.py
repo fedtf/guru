@@ -142,14 +142,14 @@ class ProjectDetailTest(TestCase):
         # Передвинули задачу из Open в In Progress
 
         self.mocked_time = timezone.datetime(2012, 5, 20, 15, 30, tzinfo=timezone.get_current_timezone())
-        issue_type_update = IssueTypeUpdate.objects.create(
+        IssueTypeUpdate.objects.create(
             gitlab_issue=issue,
             type='open',
             author=self.user,
             project=self.project
         )
 
-        issue_type_update = IssueTypeUpdate.objects.create(
+        IssueTypeUpdate.objects.create(
             gitlab_issue=issue,
             type='in_progress',
             author=self.user,
@@ -160,7 +160,7 @@ class ProjectDetailTest(TestCase):
 
         self.mocked_time = timezone.datetime(2012, 5, 20, 15, 35, tzinfo=timezone.get_current_timezone())
 
-        issue_type_update = IssueTypeUpdate.objects.create(
+        IssueTypeUpdate.objects.create(
             gitlab_issue=issue,
             type='open',
             author=self.user,
@@ -173,7 +173,7 @@ class ProjectDetailTest(TestCase):
 
         # Теперь обратно в In Progress
 
-        issue_type_update = IssueTypeUpdate.objects.create(
+        IssueTypeUpdate.objects.create(
             gitlab_issue=issue,
             type='in_progress',
             author=self.user,

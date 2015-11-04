@@ -1,5 +1,5 @@
 from django import template
-from HuskyJamGuru.models import PersonalDayWorkPlan, UserToProjectAccess, Project
+from HuskyJamGuru.models import PersonalDayWorkPlan
 
 register = template.Library()
 
@@ -11,4 +11,3 @@ def developer_work_time_evaluation(context, project, user, date):
     if len(work_plan) > 0:
         result = str(work_plan[0].work_hours) + ':00/' + str(context['projects_per_user_amount'][user])
     return result
-
