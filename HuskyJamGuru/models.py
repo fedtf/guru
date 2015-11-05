@@ -303,6 +303,7 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
     priority = models.IntegerField(editable=False)
+    rolled_up = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.pk is None:

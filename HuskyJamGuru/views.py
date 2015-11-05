@@ -5,6 +5,7 @@ import datetime
 
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
+from django.views.generic.detail import SingleObjectMixin
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect, HttpResponseBadRequest
 from django.contrib.auth import get_user_model, login
@@ -225,19 +226,35 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
         return HttpResponseRedirect(self.get_success_url())
 
 
-class SortMilestonesView(braces_views.LoginRequiredMixin,
-                         braces_views.SuperuserRequiredMixin,
-                         View):
+class ConfigureMilestoneView(braces_views.LoginRequiredMixin,
+                             braces_views.SuperuserRequiredMixin,
+                             SingleObjectMixin,
+                             View):
+    # Base view for changing privileged milestone properties.
     raise_exception = True
+    model = GitLabMilestone
 
-    def get(self, request):
-        return redirect(reverse_lazy('project-list'))
+    def configure_milestone(self, milestone):
+        pass
+
+    def get(self, request, *args, **kwargs):
+        return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
     def post(self, request, *args, **kwargs):
-        milestone_id = request.POST.get('milestone_id')
-        direction = request.POST.get('direction')
+        milestone = self.get_object()
+        self.configure_milestone(milestone)
 
-        milestone = GitLabMilestone.objects.get(pk=milestone_id)
+        if request.is_ajax():
+            return HttpResponse()
+
+        return redirect(reverse_lazy('HuskyJamGuru:project-detail',
+                                     kwargs={'pk': milestone.gitlab_project.project.pk}))
+
+
+class SortMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        direction = self.request.POST.get('direction')
+
         milestone_priority = milestone.priority
 
         if direction == 'up':
@@ -259,11 +276,11 @@ class SortMilestonesView(braces_views.LoginRequiredMixin,
                 milestone.save()
                 prev_milestone.save()
 
-        if request.is_ajax():
-            return HttpResponse()
 
-        return redirect(reverse_lazy('HuskyJamGuru:project-detail',
-                                     kwargs={'pk': milestone.gitlab_project.project.pk}))
+class RollMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        milestone.rolled_up = not milestone.rolled_up
+        milestone.save()
 
 
 class ProjectReportView(DetailView):

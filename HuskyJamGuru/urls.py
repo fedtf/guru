@@ -2,10 +2,10 @@ from django.conf.urls import url, include
 
 
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
-    synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
+    synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestoneView,\
     LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView,\
     CheckIfTaskIsDoneView, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
-    ResourceManagementView, ChangeUserNotificationStateView
+    ResourceManagementView, ChangeUserNotificationStateView, RollMilestoneView
 
 
 urlpatterns = [
@@ -20,7 +20,8 @@ urlpatterns = [
     url(r'^project-report/(?P<pk>\d+)/$', ProjectReportView.as_view(), name='project-report'),
     url(r'^personal-time-report/(?P<pk>\d+)/$', PersonalTimeReportView.as_view(), name='personal-time-report'),
     url(r'^user-profile/(?P<pk>\d+)/$', UserProfileView.as_view(), name='user-profile'),
-    url(r'^sort-milestones$', SortMilestonesView.as_view(), name='sort-milestones'),
+    url(r'^sort-milestone/(?P<pk>\d+)$', SortMilestoneView.as_view(), name='sort-milestone'),
+    url(r'^roll-milestone/(?P<pk>\d+)$', RollMilestoneView.as_view(), name='roll-milestone'),
     url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
     url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),
     url(r'^check-if-task-is-done/$', CheckIfTaskIsDoneView.as_view(), name='check-if-task-is-done'),
