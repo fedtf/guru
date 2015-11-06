@@ -59,9 +59,11 @@
                             <td style="font-size: 0.7em; white-space: nowrap; ">{{ user.gitlabauthorisation.name }}</td>
                             {% for date in dates %}
                                 <td style="
-                                font-size: 0.9em; white-space: nowrap;
-                                {% project_users_works_now_style project user date %}
-                                ">
+                                        font-size: 0.9em; white-space: nowrap;
+                                        {% if date == today %}
+                                            {% project_users_works_now_style project user date %}
+                                        {% endif %}
+                                        ">
                                     {% if date <= today %}
                                         {% project_users_work_times project user date %}
                                     {% else %}
