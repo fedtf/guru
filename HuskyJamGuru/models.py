@@ -37,8 +37,10 @@ class GitlabSynchronizeMixin(object):
                 data = [data]
             return data
         else:
-            logger.warning("Gitlab api returned not 200, it returned {} with reason {}".format(response.status_code,
-                                                                                               response.reason))
+            logger.warning(("Gitlab api returned not 200, "
+                            "it returned {} with reason {} on {}").format(response.status_code,
+                                                                          response.reason,
+                                                                          request_path))
             return []
 
     @classmethod

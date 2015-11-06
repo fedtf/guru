@@ -21,7 +21,7 @@ from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fi
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
-from .tasks import send_notifications, change_user_notification_state
+from .tasks import send_notifications, change_user_notification_state, pull_new_issue_from_gitlab
 
 
 logger = logging.getLogger(__name__)
@@ -363,6 +363,8 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
             send_notifications.delay(webhook_info)
+            if webhook_info['object_kind'] == 'issue' and webhook_info['object_attributes']['action'] == 'open':
+                pull_new_issue_from_gitlab.delay(webhook_info)
         return HttpResponse()
 
 
