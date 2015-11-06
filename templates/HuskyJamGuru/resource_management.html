@@ -2,6 +2,7 @@
 {% load staticfiles %}
 {% load bootstrap3 %}
 {% load project_users_work_time %}
+{% load project_users_works_now_style %}
 {% load developer_work_time_evaluation %}
 {% load keyvalue %}
 
@@ -57,7 +58,10 @@
                         <tr>
                             <td style="font-size: 0.7em; white-space: nowrap; ">{{ user.gitlabauthorisation.name }}</td>
                             {% for date in dates %}
-                                <td style="font-size: 0.9em; white-space: nowrap;">
+                                <td style="
+                                font-size: 0.9em; white-space: nowrap;
+                                {% project_users_works_now_style project user date %}
+                                ">
                                     {% if date <= today %}
                                         {% project_users_work_times project user date %}
                                     {% else %}

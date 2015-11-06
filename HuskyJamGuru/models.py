@@ -129,7 +129,32 @@ class Project(models.Model):
         ).all()
         for time_record in time_records:
             time += time_record.time_interval
-        return time
+
+        tasks_in_progress = IssueTypeUpdate.objects.filter(
+            project=self, is_current=True, type='in_progress', author=user, time__gte=timezone.make_aware(
+                datetime.datetime.combine(from_date, datetime.datetime.min.time()),
+                timezone.get_default_timezone()
+            )
+        ).all()
+
+        result = {
+            'time': None,
+            'working_now': False
+        }
+        if len(tasks_in_progress) > 0:
+            for task_in_progress in tasks_in_progress:
+                if task_in_progress.time >= timezone.make_aware(
+                    datetime.datetime.combine(from_date, datetime.datetime.min.time()),
+                    timezone.get_default_timezone()
+                ):
+                    if timezone.now() <= timezone.make_aware(
+                        datetime.datetime.combine(to_date, datetime.datetime.max.time()),
+                        timezone.get_default_timezone()
+                    ):
+                        result['working_now'] = True
+                        time += timezone.now() - task_in_progress.time
+        result['time'] = time
+        return result
 
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
