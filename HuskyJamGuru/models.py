@@ -42,7 +42,7 @@ class Project(models.Model):
     deadline_date = models.DateField(null=True, blank=True)
     issues_types = models.TextField(default='open, in progress, fixed, verified')
 
-    @property
+    @cached_property
     def issues(self):
         issues = GitLabIssue.objects.none()
         gitlab_projects = self.gitlab_projects.all()
@@ -50,7 +50,7 @@ class Project(models.Model):
             issues = issues | gitlab_project.issues.all()
         return issues
 
-    @property
+    @cached_property
     def developers(self):
         developers = []
         accesses = UserToProjectAccess.objects.filter(project=self, type='developer').all()
@@ -58,7 +58,7 @@ class Project(models.Model):
             developers.append(access.user)
         return developers
 
-    @property
+    @cached_property
     def users(self):
         users = []
         accesses = UserToProjectAccess.objects.filter(project=self).all()
@@ -66,7 +66,7 @@ class Project(models.Model):
             users.append(access.user)
         return users
 
-    @property
+    @cached_property
     def report_list(self):
         report_list = []
         verified = 0
@@ -82,7 +82,7 @@ class Project(models.Model):
             report_list.append({'date': date, 'issues': issues_number - verified})
         return report_list
 
-    @property
+    @cached_property
     def issues_types_tuple(self):
         external_list = [type.strip().title() for type in self.issues_types.split(',')]
         internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
@@ -131,10 +131,12 @@ class Project(models.Model):
             time += time_record.time_interval
 
         tasks_in_progress = IssueTypeUpdate.objects.filter(
-            project=self, is_current=True, type='in_progress', author=user, time__gte=timezone.make_aware(
+            project=self, is_current=True, type='in_progress', author=user,
+            time__gte=timezone.make_aware(
                 datetime.datetime.combine(from_date, datetime.datetime.min.time()),
                 timezone.get_default_timezone()
-            )
+            ),
+            time__lte=timezone.now(),
         ).all()
 
         result = {
