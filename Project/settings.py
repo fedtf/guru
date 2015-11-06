@@ -73,7 +73,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'HuskyJamGuru.context_processors.version_description'
+                'HuskyJamGuru.context_processors.version_description',
+                'HuskyJamGuru.context_processors.amount_of_planned_days'
             ],
         },
     },
@@ -122,6 +123,8 @@ GITLAB_URL = 'http://185.22.60.142:8889'
 GITLAB_APPLICATION_ID = '9bc472164fc76c3dda596f01205cba2bb63a47d4e57d59fd5dd01762b3042721'
 GITLAB_APPLICATION_SECRET = 'b3d2981b461dded4655810765b2e898ced9fd55a277348a1502607960da5c1f2'
 
+TELEGRAM_BOT_TOKEN = '120588339:AAEoCfGkxPMOcbtlDXP31xPvH_v7hUD_eho'
+
 SITE_ID = 1
 
 LOGIN_URL = '/login'
@@ -135,4 +138,42 @@ LOGIN_REQUIRED_URLS_EXCEPTIONS = (
     r'/login(.*)$',
     r'/admin(.*)$',
     r'/gitlab_auth_callback(.*)$',
+    r'/{}(.*)$'.format(TELEGRAM_BOT_TOKEN),
+    r'/gitlab-webhook(.*)$',
 )
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            'datefmt': "%d/%b/%Y %H/%M/%S",
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'HuskyJamGuru': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}

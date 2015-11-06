@@ -15,6 +15,7 @@
     <link href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.5/darkly/bootstrap.min.css" rel="stylesheet">
     <!-- Custom styles for this template -->
     <link href={% static "main.css" %} rel="stylesheet">
+    <link href={% static "css/bootstrap-datepicker3.css" %} rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -24,6 +25,7 @@
 
     <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
     <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <script src={% static "js/bootstrap-datepicker.js" %}></script>
     {% block preload %}
     {% endblock %}
 </head>
@@ -40,23 +42,35 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="/">Husky Jam Guru</a>
+            <a class="navbar-brand" href="/">Guru</a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
                 {% if user.is_authenticated   %}
                     <li><a href="{% url 'HuskyJamGuru:project-list' %}">Projects</a></li>
                     <li><a href="" id="sync-with-gitlab-button">Synchronise Guru with gitlab</a></li>
+                    <li><a href="{% url 'HuskyJamGuru:personal-plan' %}" id="plan">Personal plan
+                        {% if PLAN_IS_FULFILLED %}
+                            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                        {% else %}
+                            <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
+                        {% endif %}
+                    </a></li>
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'admin:index' %}">Администрирование</a></li>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
+                        <li class="dropdown">
+                          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Admin features <span class="caret"></span></a>
+                          <ul class="dropdown-menu">
+                            <li><a href="{% url 'admin:index' %}">System administration</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
+                          </ul>
+                        </li>
                     {% endif %}
                 {% endif %}
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 {% if user.is_authenticated %}
+                    <li><a href="{% url 'HuskyJamGuru:user-profile' user.pk %}">My Profile</a></li>
                     <li><a href="{% url 'logout' %}">Logout ({{ user.gitlabauthorisation.name }})</a></li>
                 {% else %}
                     <li><a href="{% url 'HuskyJamGuru:login' %}">Login</a></li>
@@ -66,6 +80,7 @@
     </div>
 </nav>
 <div class="container">
+    {% bootstrap_messages form layout='horizontal' %}
     {% block content %}
     {% endblock %}
     <div style="color: #949494; font-size: 0.9em;" class="text-center">{{ VERSION_DESCRIPTION }}</div>

@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form method="post" action=".">
+    {{ form.as_ul }}
+    {% csrf_token %}
+    <input type="submit" value="Submit" name="submit">
+</form>
+{% if not user.telegram_user.notification_enabled %}
+    <span>Notification disabled. To subscribe click on the link and then "Start" in the new conversation in your Telegram app.</span><br/>
+    <a class="change-notification-state" data-new-state="enabled" target = "_blank" href="https://telegram.me/HuskyJamGuruBot?start={{ user.telegram_user.telegram_id }}">Subscribe to notifications</a>
+{% else %}
+    Notification enabled<br/>
+    <a class="change-notification-state" data-new-state="disabled" href="#">Disable Notification</a>
+{% endif %}
+
+<script>
+    $('.change-notification-state').on('click', function(e) { changeNotificationState($(e.target).attr('data-new-state')) });
+
+    function changeNotificationState(newState) {
+        $.ajax({
+            type: "POST",
+            url: "{% url 'HuskyJamGuru:change-user-notification-state' user_pk=user.pk %}",
+            data: {
+                new_state: newState,
+                csrf_token: "{{ csrf_token }}",
+            },
+            success: function(taskId) {
+                CheckIfTaskIsDone(taskId, function() { location.reload() });
+            },
+        });
+    }
+</script>
+
+{% endblock %}

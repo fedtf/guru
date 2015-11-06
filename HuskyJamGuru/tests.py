@@ -7,15 +7,15 @@ from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
-    ProjectUpdateView, PersonalTimeReportView
+    ProjectUpdateView, PersonalTimeReportView, UserProfileView, RollMilestoneView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser, PersonalDayWorkPlan
 
 
 def create_data():
     # creates data
     project = Project(name='testproject', creation_date=timezone.now(),
-                      finish_date_assessment=timezone.now())
+                      work_start_date=timezone.now())
     project.save()
 
     gitlab_project = GitlabProject(name='gitlabtestproject', gitlab_id=4,
@@ -235,7 +235,7 @@ class ProjectReportTest(TestCase):
         self.client.login(username='test', password='testpass')
         new_project = Project.objects.create(name='testproject',
                                              creation_date=timezone.now(),
-                                             finish_date_assessment=timezone.now())
+                                             work_start_date=timezone.now())
         self.page_url = '/project-report/{}/'.format(new_project.pk)
 
     def test_url_resolves_to_project_report_view(self):
@@ -254,8 +254,8 @@ class ProjectReportTest(TestCase):
         today = timezone.now().date()
 
         new_project = Project(name="test_project")
-        new_project.creation_date = today - datetime.timedelta(days=4)
-        new_project.finish_date_assessment = timezone.now().date()
+        new_project.work_start_date = today - datetime.timedelta(days=4)
+        new_project.deadline_date = timezone.now().date()
         new_project.save()
 
         new_gitlab_project = GitlabProject(name="test_gitlab_project")
@@ -307,6 +307,15 @@ class ProjectReportTest(TestCase):
 
 
 class ProjectUpdateTest(TestCase):
+
+    def get_inline_work_form_data(self):
+        return {
+            'work_time_evaluation-TOTAL_FORMS': 1,
+            'work_time_evaluation-INITIAL_FORMS': 0,
+            'work_time_evaluation-MIN_NUM_FORMS': 0,
+            'work_time_evaluation-MAX_NUM_FORMS': 1000
+        }
+
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
@@ -314,7 +323,7 @@ class ProjectUpdateTest(TestCase):
         self.client.login(username='test', password='testpass')
         mile, _, _ = create_data()
         new_project = mile.gitlab_project.project
-        new_project.finish_date_assessment = new_project.creation_date + datetime.timedelta(days=3)
+        new_project.work_start_date = new_project.creation_date + datetime.timedelta(days=3)
         new_project.save()
         self.project = new_project
         self.page_url = '/project-update/{}/'.format(self.project.pk)
@@ -351,16 +360,29 @@ class ProjectUpdateTest(TestCase):
         self.assertContains(response, self.page_url)
 
     def test_date_updates_after_post(self):
-        new_date = (self.project.creation_date + datetime.timedelta(days=3)).date()
+        new_date = self.project.work_start_date + datetime.timedelta(days=3)
         new_date_string = new_date.strftime('%Y-%m-%d')
-        self.client.post(self.page_url, {'finish_date_assessment': new_date_string})
+
+        data = {
+            'name': 'test_name',
+            'status': 'presale',
+            'issues_types': 'cool, nice, the best',
+            'work_start_date': new_date_string
+        }
+        data.update(self.get_inline_work_form_data())
+
+        self.client.post(self.page_url, data)
+
         project = Project.objects.get(pk=self.project.pk)
-        self.assertEqual(project.finish_date_assessment, new_date)
+        self.assertEqual(project.work_start_date, new_date)
 
     def test_columns_saves_correctly(self):
         data = {
+            'name': 'test_name',
+            'status': 'presale',
             'issues_types': 'cool, nice, the best'
         }
+        data.update(self.get_inline_work_form_data())
 
         self.client.post(self.page_url, data)
         project = Project.objects.get(pk=self.project.pk)
@@ -368,9 +390,13 @@ class ProjectUpdateTest(TestCase):
         self.assertEqual(project.issues_types, 'cool, nice, the best')
 
     def test_project_returns_correct_issues_types_tuple(self):
+
         data = {
-            'issues_types': 'cool, nice, the best'
+            'name': 'test_name',
+            'status': 'presale',
+            'issues_types': 'cool, nice, the best',
         }
+        data.update(self.get_inline_work_form_data())
 
         self.client.post(self.page_url, data)
         project = Project.objects.get(pk=self.project.pk)
@@ -384,7 +410,7 @@ class ProjectUpdateTest(TestCase):
         self.assertEqual(project.issues_types_tuple, expected_tuple)
 
 
-class MilestoneSortTest(TestCase):
+class SortMilestoneTest(TestCase):
     def setUp(self):
         get_user_model().objects.create_superuser(username='test', password='testpass',
                                                   email='testadmin@example.com')
@@ -401,11 +427,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile2.pk), data)
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
         self.assertEqual(milestones[0], mile2)
@@ -413,10 +438,9 @@ class MilestoneSortTest(TestCase):
         self.assertEqual(milestones[2], mile3)
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
@@ -428,11 +452,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        response = self.client.post('/sort-milestones', data,
+        response = self.client.post('/sort-milestone/{}'.format(mile2.pk), data,
                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')
 
         self.assertEqual(response.status_code, 200)
@@ -450,10 +473,9 @@ class MilestoneSortTest(TestCase):
         self.client.login(username='testuser', password='testpass')
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        response = self.client.post('/sort-milestones', data)
+        response = self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         self.assertEqual(response.status_code, 403)
 
@@ -500,6 +522,44 @@ class TestLoginAsGuruUser(TestCase):
 
         response = self.client.post('/login-as-guru/', data, follow=True)
         self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
+
+
+class TestWorkPlans(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='test',
+            password='testpass',
+            email='testuser@example.com'
+        )
+
+        # Записываем разные планы на один день, последний должен перекрыть предыдущие
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=1).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=3).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 3, 11), work_hours=2).save()
+
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 11), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 12), work_hours=4).save()
+        PersonalDayWorkPlan(user=self.user, date=datetime.date(2015, 5, 13), work_hours=4).save()
+
+    def test_getting(self):
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 3, 10))
+        self.assertQuerysetEqual(work_plan, PersonalDayWorkPlan.objects.none())
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 10))
+        self.assertEqual(len(work_plan), 1)
+
+        work_plan = PersonalDayWorkPlan.get_work_plan(self.user, datetime.date(2015, 3, 9), datetime.date(2015, 5, 11))
+
+        self.assertEqual(len(work_plan), 2)
+        self.assertEqual(work_plan[0].work_hours, 2)
+        self.assertEqual(work_plan[1].work_hours, 4)
+
+    def test_getting_borders(self):
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 3, 11))
+        self.assertEqual(days, 0)
+
+        days = PersonalDayWorkPlan.get_amount_of_unceasingly_planned_days(self.user, datetime.date(2015, 5, 11))
+        self.assertEqual(days, 2)
 
 
 class PersonalTimeReportTest(TestCase):
@@ -576,6 +636,9 @@ class PersonalTimeReportTest(TestCase):
             ]
         }
 
+        found_week1 = False
+        found_week2 = False
+
         weekly_records = self.user.gitlabauthorisation.weekly_time_spent_records
         for week in weekly_records:
             if week['start_date'] == week1['start_date'] and week['end_date'] == week1['end_date']:
@@ -591,3 +654,78 @@ class PersonalTimeReportTest(TestCase):
 
         self.assertTrue(found_week1)
         self.assertTrue(found_week2)
+
+
+class UserProfileTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.page_url = '/user-profile/{}/'.format(self.user.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, UserProfileView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/user_profile.html')
+
+    def test_page_contains_initialise_link_if_notifications_disabled(self):
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        self.assertContains(response, initialise_link)
+
+    def test_page_not_contains_initialise_link_if_notifications_enabled(self):
+        TelegramUser.objects.create(user=self.user, telegram_id='23455', notification_enabled=True)
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        self.assertNotContains(response, initialise_link)
+
+    def test_page_saves_notification_events_correctly(self):
+        data = {
+            'notification_events': ['note', 'push'],
+        }
+        self.client.post(self.page_url, data)
+
+        self.assertEqual(self.user.telegram_user.notification_events, ['note', 'push'])
+
+    def test_page_returns_forbidden_if_request_from_other_user(self):
+        response = self.client.get('/user-profile/156/')
+        self.assertEqual(response.status_code, 403)
+
+
+class RollMilestoneTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        self.mile, _, _ = create_data()
+        self.page_url = '/roll-milestone/{}'.format(self.mile.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, RollMilestoneView.__name__)
+
+    def test_page_redirects_on_get(self):
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
+
+    def test_page_returns_403_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_miletone_roll_state_toggles(self):
+        self.mile.rolled_up = False
+        self.mile.save()
+
+        self.client.post(self.page_url)
+
+        self.assertEqual(GitLabMilestone.objects.get(pk=self.mile.pk).rolled_up, True)
