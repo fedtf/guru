@@ -363,7 +363,7 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
             send_notifications.delay(webhook_info)
-            if webhook_info['object_kind'] == 'issue' and webhook_info['object_attributes']['action'] == 'open':
+            if webhook_info['object_kind'] == 'issue' and webhook_info['object_attributes']['action'] != 'close':
                 pull_new_issue_from_gitlab.delay(webhook_info)
         return HttpResponse()
 
