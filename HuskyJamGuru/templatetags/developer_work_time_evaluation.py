@@ -9,5 +9,5 @@ def developer_work_time_evaluation(context, project, user, date):
     result = ''
     work_plan = PersonalDayWorkPlan.get_work_plan(user, date, date)
     if len(work_plan) > 0:
-        result = str(work_plan[0].work_hours) + ':00/' + str(context['projects_per_user_amount'][user])
+        result = '/' + str(work_plan[0].work_hours) + '/' + str(context['projects_per_user_amount'][user])
     return result

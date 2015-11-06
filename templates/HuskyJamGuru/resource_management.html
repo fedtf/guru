@@ -65,7 +65,7 @@
                                         {% endif %}
                                         ">
                                     {% if date <= today %}
-                                        {% project_users_work_times project user date %}
+                                        {% project_users_work_times project user date %}<span style="color: #7F7F7F;">{% developer_work_time_evaluation project user date %}</span>
                                     {% else %}
                                         <div style="color: #7F7F7F;">
                                             {% developer_work_time_evaluation project user date %}
