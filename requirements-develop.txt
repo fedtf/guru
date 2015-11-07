@@ -10,3 +10,4 @@ celery
 django-celery
 python-telegram-bot
 django-multiselectfield
+mock

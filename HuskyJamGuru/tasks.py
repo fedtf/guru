@@ -4,7 +4,7 @@ import time
 from django.core.exceptions import ObjectDoesNotExist
 
 from Project.celery import app
-from .models import GitlabProject
+from .models import GitlabProject, GitLabIssue, GitLabMilestone
 from .telegram_bot import telegram_bot
 
 
@@ -80,3 +80,19 @@ def change_user_notification_state(new_state, telegram_user):
                     return
         logger.info('Failed trying to subscribe user {} with id {}'.format(telegram_user,
                                                                            telegram_user.telegram_id))
+
+
+@app.task
+def pull_new_issue_from_gitlab(webhook_info):
+    object_attributes = webhook_info['object_attributes']
+    project_id = object_attributes['project_id']
+    milestone_id = object_attributes['milestone_id']
+
+    if not GitlabProject.objects.filter(gitlab_id=project_id).all():
+        GitlabProject.pull_from_gitlab('projects/{}'.format(project_id))
+    if (milestone_id and
+            not GitLabMilestone.objects.filter(gitlab_milestone_id=milestone_id).all()):
+        GitLabMilestone.pull_from_gitlab('projects/{}/milestones/{}'.format(project_id, milestone_id))
+
+    GitLabIssue.pull_from_gitlab('/projects/{}/issues/{}'.format(project_id,
+                                                                 object_attributes['id']))

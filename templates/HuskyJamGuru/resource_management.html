@@ -2,6 +2,9 @@
 {% load staticfiles %}
 {% load bootstrap3 %}
 {% load project_users_work_time %}
+{% load project_users_works_now_style %}
+{% load developer_work_time_evaluation %}
+{% load keyvalue %}
 
 {% block content %}
     <h3>Resource management</h3>
@@ -48,41 +51,31 @@
                                 {% if project.deadline_date == date %}
                                     <span class="glyphicon glyphicon-fire" aria-hidden="true"></span>
                                 {% endif %}
-{#                                {% if project.deadline_date == date %}#}
-{#                                    <span class="glyphicon glyphicon-equalizer" aria-hidden="true"></span>#}
-{#                                {% endif %}#}
                             </td>
                         {% endfor %}
                     </tr>
-                    {% for developer in project.developers %}
+                    {% for user in project.users %}
                         <tr>
-                            <td style="font-size: 0.7em; white-space: nowrap; ">{{ developer.gitlabauthorisation.name }}</td>
+                            <td style="font-size: 0.7em; white-space: nowrap; ">{{ user.gitlabauthorisation.name }}</td>
                             {% for date in dates %}
-                                <td style="font-size: 0.9em; white-space: nowrap;">
-                                    {% project_users_work_times project developer date %}
+                                <td style="
+                                        font-size: 0.9em; white-space: nowrap;
+                                        {% if date == today %}
+                                            {% project_users_works_now_style project user date %}
+                                        {% endif %}
+                                        ">
+                                    {% if date <= today %}
+                                        {% project_users_work_times project user date %}<span style="color: #7F7F7F;">{% developer_work_time_evaluation project user date %}</span>
+                                    {% else %}
+                                        <div style="color: #7F7F7F;">
+                                            {% developer_work_time_evaluation project user date %}
+                                        </div>
+                                    {% endif %}
                                 </td>
                             {% endfor %}
                         </tr>
                     {% endfor %}
                 {% endfor %}
-                {#                <tr>#}
-                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Роман Ефремов</td>#}
-                {#                    <td>4</td>#}
-                {#                    <td>4</td>#}
-                {#                    <td>2</td>#}
-                {#                    <td>8</td>#}
-                {#                    <td>3</td>#}
-                {#                    <td>4</td>#}
-                {#                </tr>#}
-                {#                <tr>#}
-                {#                    <td style="font-size: 0.7em; white-space: nowrap; ">Анна Шахбазян</td>#}
-                {#                    <td>3/4</td>#}
-                {#                    <td>4/4</td>#}
-                {#                    <td>3/2</td>#}
-                {#                    <td>7/8</td>#}
-                {#                    <td>2/3</td>#}
-                {#                    <td>3/4</td>#}
-                {#                </tr>#}
                 </tbody>
             </table>
         </div>

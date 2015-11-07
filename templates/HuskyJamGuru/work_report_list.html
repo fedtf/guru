@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load settings_value %}
+{% load timedelta %}
 
 {% block content %}
     <div class="bs-docs-section">
@@ -19,7 +20,7 @@
                                     <div class="row">
                                         <div class="col-lg-5">
                                             <a target="_blank" href="{{ current_issue.link }}" class="issue-name">{{ current_issue.name }}</a>
-                                            <br>(<small class="issue-heading-time">{{ current_issue.spent_minutes }} minutes</small>)
+                                            <br>(<small class="issue-heading-time">{{ current_issue.spent_time }}</small>)
                                         </div>
                                         <div class="col-lg-7">
                                             <small>
@@ -47,7 +48,7 @@
                             <div class="row">
                                 <div class="col-lg-5">
                                     <a target="_blank" href="{{ time_record.gitlab_issue.link }}" class="issue-name">{{ time_record.gitlab_issue.name }}</a>
-                                    <br>(<small class="issue-heading-time">{% widthratio time_record.seconds 60 1 %} minutes</small>)
+                                    <br>(<small class="issue-heading-time">{{ time_record.time_interval|timedelta }}</small>)
                                 </div>
                                 <div class="col-lg-7">
                                     <small>

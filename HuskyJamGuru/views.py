@@ -1,10 +1,11 @@
-import logging
 import uuid
 import json
 import datetime
+import logging
 
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
+from django.views.generic.detail import SingleObjectMixin
 from django.core.urlresolvers import reverse_lazy
 from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect, HttpResponseBadRequest
 from django.contrib.auth import get_user_model, login
@@ -16,19 +17,14 @@ from django.core.exceptions import ObjectDoesNotExist
 from braces import views as braces_views
 from celery.result import AsyncResult
 
-from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
-from .tasks import send_notifications, change_user_notification_state
+from .tasks import send_notifications, change_user_notification_state, pull_new_issue_from_gitlab
 
 
 logger = logging.getLogger(__name__)
-
-
-def milestones_fix(request):
-    fix_milestones_id(request)
-    return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
 
 class Login(TemplateView):
@@ -60,6 +56,12 @@ class ResourceManagementView(braces_views.LoginRequiredMixin, braces_views.Super
         context['today'] = datetime.datetime.today().date()
         context['dates'] = dates
         context['projects'] = Project.objects.filter(status='in-development').all()
+        context['projects_per_user_amount'] = {}
+        accesses = UserToProjectAccess.objects.filter().all()
+        for access in accesses:
+            if access.user not in context['projects_per_user_amount']:
+                context['projects_per_user_amount'][access.user] = 0
+            context['projects_per_user_amount'][access.user] += 1
         return context
 
 
@@ -144,6 +146,7 @@ def synchronise_with_gitlab(request):
 
 class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
                             braces_views.AjaxResponseMixin,
+                            braces_views.JSONResponseMixin,
                             View):
     raise_exception = True
 
@@ -152,11 +155,11 @@ class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
 
         result = AsyncResult(task_id)
 
-        if result.successful():
-            status = 'done'
-        else:
-            status = 'in work'
-        return HttpResponse(status)
+        task = {
+            'status': result.status,
+            'id': result.id,
+        }
+        return self.render_json_response(task)
 
 
 class ProjectDetailView(DetailView):
@@ -225,45 +228,63 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
         return HttpResponseRedirect(self.get_success_url())
 
 
-class SortMilestonesView(braces_views.LoginRequiredMixin,
-                         braces_views.SuperuserRequiredMixin,
-                         View):
+class ConfigureMilestoneView(braces_views.LoginRequiredMixin,
+                             braces_views.SuperuserRequiredMixin,
+                             SingleObjectMixin,
+                             View):
+    # Base view for changing privileged milestone properties.
     raise_exception = True
+    model = GitLabMilestone
 
-    def get(self, request):
-        return redirect(reverse_lazy('project-list'))
+    def configure_milestone(self, milestone):
+        raise NotImplementedError('You should provide configure_milestone method.')
+
+    def get(self, request, *args, **kwargs):
+        return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
     def post(self, request, *args, **kwargs):
-        milestone_id = request.POST.get('milestone_id')
-        direction = request.POST.get('direction')
-
-        milestone = GitLabMilestone.objects.get(pk=milestone_id)
-        milestone_priority = milestone.priority
-
-        if direction == 'up':
-            next_milestone = milestone.gitlab_project.gitlab_milestones \
-                .filter(priority__lt=milestone_priority).last()
-            if next_milestone is not None:
-                milestone.priority = next_milestone.priority
-                next_milestone.priority = milestone_priority
-
-                milestone.save()
-                next_milestone.save()
-        elif direction == 'down':
-            prev_milestone = milestone.gitlab_project.gitlab_milestones \
-                .filter(priority__gt=milestone_priority).first()
-            if prev_milestone is not None:
-                milestone.priority = prev_milestone.priority
-                prev_milestone.priority = milestone_priority
-
-                milestone.save()
-                prev_milestone.save()
+        milestone = self.get_object()
+        try:
+            self.configure_milestone(milestone)
+        except Exception as e:
+            return HttpResponseBadRequest(e)
 
         if request.is_ajax():
             return HttpResponse()
 
         return redirect(reverse_lazy('HuskyJamGuru:project-detail',
                                      kwargs={'pk': milestone.gitlab_project.project.pk}))
+
+
+class SortMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        direction = self.request.POST.get('direction')
+
+        milestone_priority = milestone.priority
+
+        if direction == 'up':
+            swap_milestone = milestone.gitlab_project.gitlab_milestones \
+                .filter(priority__lt=milestone_priority).last()
+        elif direction == 'down':
+            swap_milestone = milestone.gitlab_project.gitlab_milestones \
+                .filter(priority__gt=milestone_priority).first()
+        else:
+            raise Exception("Invalid direction.")
+
+        if swap_milestone is not None:
+            milestone.priority = swap_milestone.priority
+            swap_milestone.priority = milestone_priority
+
+            milestone.save()
+            swap_milestone.save()
+        else:
+            raise Exception("Can't move first milestone higher, or last - lower.")
+
+
+class RollMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        milestone.rolled_up = not milestone.rolled_up
+        milestone.save()
 
 
 class ProjectReportView(DetailView):
@@ -346,6 +367,8 @@ class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
         if request.body:
             webhook_info = json.loads(request.body.decode('utf-8'))
             send_notifications.delay(webhook_info)
+            if webhook_info['object_kind'] == 'issue' and webhook_info['object_attributes']['action'] != 'close':
+                pull_new_issue_from_gitlab.delay(webhook_info)
         return HttpResponse()
 
 

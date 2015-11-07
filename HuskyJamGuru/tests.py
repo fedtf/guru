@@ -1,4 +1,5 @@
 import datetime
+from mock import patch
 
 from django.test import TestCase
 from django.core.urlresolvers import resolve, reverse
@@ -7,7 +8,7 @@ from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
-    ProjectUpdateView, PersonalTimeReportView, UserProfileView
+    ProjectUpdateView, PersonalTimeReportView, UserProfileView, RollMilestoneView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
     UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser, PersonalDayWorkPlan
 
@@ -41,11 +42,20 @@ class ProjectDetailTest(TestCase):
         self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
                                                               email='testadmin@example.com')
         self.client.login(username='test', password='testpass')
-        mile, _, _ = create_data()
-        new_project = mile.gitlab_project.project
-        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.mile, _, _ = create_data()
+        new_project = self.mile.gitlab_project.project
+        self.gitlab_auth = GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
         self.project = new_project
         self.page_url = '/project-detail/{}/'.format(self.project.pk)
+
+        self.mocked_time = timezone.datetime(2012, 5, 18, tzinfo=timezone.get_current_timezone())
+
+        def now():
+            return self.mocked_time
+
+        patcher = patch('django.utils.timezone.now', now)
+        self.addCleanup(patcher.stop)
+        patcher.start()
 
     def test_url_resolves_to_right_view(self):
         found = resolve(self.page_url)
@@ -118,6 +128,62 @@ class ProjectDetailTest(TestCase):
         new_issue_link = "http://185.22.60.142:8889/core/proj/issues/new?issue%5Bmilestone_id%5D={}"
         new_milestone_gitlab_id = gitlab_project.gitlab_milestones.first().gitlab_milestone_id
         self.assertContains(response, new_issue_link.format(new_milestone_gitlab_id))
+
+    def test_user_work_time(self):
+        project = self.mile.gitlab_project.project
+
+        UserToProjectAccess.objects.create(user=self.user, project=project, type='developer')
+
+        issue = GitLabIssue.objects.create(
+            gitlab_issue_id=1, gitlab_project=self.mile.gitlab_project, gitlab_issue_iid=1
+        )
+
+        # Передвинули задачу из Open в In Progress
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 30, tzinfo=timezone.get_current_timezone())
+        IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='open',
+            author=self.user,
+            project=self.project
+        )
+
+        IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='in_progress',
+            author=self.user,
+            project=self.project
+        )
+
+        # Через 5 минут обратно в Open
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 35, tzinfo=timezone.get_current_timezone())
+
+        IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='open',
+            author=self.user,
+            project=self.project
+        )
+
+        # Проверим время
+
+        self.assertEqual(issue.spent_time, timezone.timedelta(minutes=5))
+
+        # Теперь обратно в In Progress
+
+        IssueTypeUpdate.objects.create(
+            gitlab_issue=issue,
+            type='in_progress',
+            author=self.user,
+            project=self.project
+        )
+
+        self.mocked_time = timezone.datetime(2012, 5, 20, 15, 40, tzinfo=timezone.get_current_timezone())
+
+        # Проверим время
+
+        self.assertEqual(issue.spent_time, timezone.timedelta(minutes=10))
 
 
 class WorkReportListTest(TestCase):
@@ -409,7 +475,7 @@ class ProjectUpdateTest(TestCase):
         self.assertEqual(project.issues_types_tuple, expected_tuple)
 
 
-class MilestoneSortTest(TestCase):
+class SortMilestoneTest(TestCase):
     def setUp(self):
         get_user_model().objects.create_superuser(username='test', password='testpass',
                                                   email='testadmin@example.com')
@@ -426,11 +492,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile2.pk), data)
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
         self.assertEqual(milestones[0], mile2)
@@ -438,10 +503,9 @@ class MilestoneSortTest(TestCase):
         self.assertEqual(milestones[2], mile3)
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
@@ -453,11 +517,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        response = self.client.post('/sort-milestones', data,
+        response = self.client.post('/sort-milestone/{}'.format(mile2.pk), data,
                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')
 
         self.assertEqual(response.status_code, 200)
@@ -475,10 +538,9 @@ class MilestoneSortTest(TestCase):
         self.client.login(username='testuser', password='testpass')
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        response = self.client.post('/sort-milestones', data)
+        response = self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         self.assertEqual(response.status_code, 403)
 
@@ -610,16 +672,36 @@ class PersonalTimeReportTest(TestCase):
                                            gitlab_issue_id=5,
                                            gitlab_issue_iid=6,
                                            gitlab_project=self.project.gitlab_projects.first())
-        record1 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 7, 8))
-        record2 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 7, 10))
-        record3 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 22))
-        record4 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 24))
-        record5 = IssueTimeSpentRecord.objects.create(user=self.user, gitlab_issue=issue,
-                                                      time_start=datetime.datetime(2015, 9, 26))
+        record1 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 7, 8, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record2 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 7, 10, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record3 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 22, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record4 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 24, tzinfo=timezone.get_current_timezone()
+            )
+        )
+        record5 = IssueTimeSpentRecord.objects.create(
+            user=self.user, gitlab_issue=issue,
+            time_start=timezone.datetime(
+                2015, 9, 26, tzinfo=timezone.get_current_timezone()
+            )
+        )
 
         week1 = {
             'start_date': datetime.date(2015, 7, 6),
@@ -701,3 +783,34 @@ class UserProfileTest(TestCase):
     def test_page_returns_forbidden_if_request_from_other_user(self):
         response = self.client.get('/user-profile/156/')
         self.assertEqual(response.status_code, 403)
+
+
+class RollMilestoneTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        self.mile, _, _ = create_data()
+        self.page_url = '/roll-milestone/{}'.format(self.mile.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, RollMilestoneView.__name__)
+
+    def test_page_redirects_on_get(self):
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
+
+    def test_page_returns_403_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_miletone_roll_state_toggles(self):
+        self.mile.rolled_up = False
+        self.mile.save()
+
+        self.client.post(self.page_url)
+
+        self.assertEqual(GitLabMilestone.objects.get(pk=self.mile.pk).rolled_up, True)

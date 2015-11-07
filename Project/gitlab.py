@@ -77,34 +77,3 @@ def load_new_and_update_existing_projects_from_gitlab():
     GitlabProject.pull_from_gitlab()
     GitLabMilestone.pull_from_gitlab()
     GitLabIssue.pull_from_gitlab()
-
-
-def fix_milestones_id(request):
-    projects = json.loads(
-        get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
-    )
-    for project in projects:
-        gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
-        gitlab_project.name = project['name']
-        gitlab_project.path_with_namespace = project['path_with_namespace']
-        gitlab_project.name_with_namespace = project['name_with_namespace']
-        gitlab_project.creation_time = project['created_at']
-        gitlab_project.save()
-        milestones = json.loads(
-            get_gitlab(request).get(
-                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/milestones"
-            ).content.decode("utf-8")
-        )
-        for milestone in milestones:
-            try:
-                gitlab_milestone = GitLabMilestone.objects.get_or_create(
-                    gitlab_milestone_id=milestone['iid'],
-                    gitlab_project=gitlab_project
-                )[0]
-                gitlab_milestone.gitlab_milestone_id = milestone['id']
-                gitlab_milestone.gitlab_milestone_iid = milestone['iid']
-                gitlab_milestone.name = milestone['title']
-                gitlab_milestone.closed = milestone['state'] != 'active'
-                gitlab_milestone.save()
-            except Exception:
-                pass
