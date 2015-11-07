@@ -3,7 +3,7 @@ from django.views.decorators.cache import cache_page
 
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
     synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestoneView,\
-    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, UpdateItemFromGitlabView,\
+    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, UpdateItemFromGitlabView,\
     CheckIfTaskIsDoneView, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
     ResourceManagementView, ChangeUserNotificationStateView, RollMilestoneView
 
@@ -22,7 +22,6 @@ urlpatterns = [
     url(r'^user-profile/(?P<pk>\d+)/$', UserProfileView.as_view(), name='user-profile'),
     url(r'^sort-milestone/(?P<pk>\d+)$', SortMilestoneView.as_view(), name='sort-milestone'),
     url(r'^roll-milestone/(?P<pk>\d+)$', RollMilestoneView.as_view(), name='roll-milestone'),
-    url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
     url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),
     url(r'^check-if-task-is-done/$', CheckIfTaskIsDoneView.as_view(), name='check-if-task-is-done'),
     url(

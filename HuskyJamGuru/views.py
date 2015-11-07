@@ -17,7 +17,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from braces import views as braces_views
 from celery.result import AsyncResult
 
-from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
     GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
@@ -25,11 +25,6 @@ from .tasks import send_notifications, change_user_notification_state, pull_new_
 
 
 logger = logging.getLogger(__name__)
-
-
-def milestones_fix(request):
-    fix_milestones_id(request)
-    return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
 
 class Login(TemplateView):
