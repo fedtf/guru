@@ -1,0 +1,16 @@
+db:
+  image: mysql
+  environment:
+    MYSQL_ROOT_PASSWORD: password
+    MYSQL_DATABASE: project_database
+web:
+  build: .
+  command: bash -c "sleep 20 && python3 manage.py migrate --settings=Project.docker_develop_settings && while true; do sleep 100; done;"
+  environment:
+    MYSQL_DATABASE_NAME: project_database
+  volumes:
+    - .:/opt/app
+  ports:
+    - "8000:8000"
+  links:
+    - db:mysql_charset

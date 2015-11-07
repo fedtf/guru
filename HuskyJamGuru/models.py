@@ -56,6 +56,7 @@ class WorkTimeEvaluation(models.Model):
     TYPE_CHOICES = (
         ('markup', 'Markup'),
         ('backend', 'Backend'),
+        ('testing', 'Testing'),
         ('ux', 'UX'),
         ('business-analyse', 'Business Analyse'),
         ('design', 'Design'),
@@ -88,16 +89,15 @@ class Project(models.Model):
         for gitlab_project in self.gitlab_projects.all():
             gitlab_project.update_from_gitlab()
 
-    @property
+    @cached_property
     def issues(self):
         issues = GitLabIssue.objects.none()
         gitlab_projects = self.gitlab_projects.all()
         for gitlab_project in gitlab_projects:
-            # will not work for sliced querysets
             issues = issues | gitlab_project.issues.all()
         return issues
 
-    @property
+    @cached_property
     def developers(self):
         developers = []
         accesses = UserToProjectAccess.objects.filter(project=self, type='developer').all()
@@ -105,7 +105,15 @@ class Project(models.Model):
             developers.append(access.user)
         return developers
 
-    @property
+    @cached_property
+    def users(self):
+        users = []
+        accesses = UserToProjectAccess.objects.filter(project=self).all()
+        for access in accesses:
+            users.append(access.user)
+        return users
+
+    @cached_property
     def report_list(self):
         report_list = []
         verified = 0
@@ -121,7 +129,7 @@ class Project(models.Model):
             report_list.append({'date': date, 'issues': issues_number - verified})
         return report_list
 
-    @property
+    @cached_property
     def issues_types_tuple(self):
         external_list = [type.strip().title() for type in self.issues_types.split(',')]
         internal_list = [type.strip().replace(' ', '_') for type in self.issues_types.split(',')]
@@ -137,24 +145,24 @@ class Project(models.Model):
 
     @cached_property
     def finish_time_evaluation_based_on_work_time_evaluation(self):
-        if self.work_start_date < datetime.datetime.today().date():
+        if self.work_start_date < timezone.datetime.today().date():
             medium_work_time_per_day_summ = 0
             developers = self.developers
             for developer in developers:
                 medium_work_time_per_day_summ += self.get_user_work_time(
-                    developer, None, self.work_start_date, datetime.datetime.today().date()
+                    developer, None, self.work_start_date, timezone.datetime.today().date()
                 )
-            project_work_days_amount = (datetime.datetime.today().date() - self.work_start_date).days
+            project_work_days_amount = (timezone.datetime.today().date() - self.work_start_date).days
             medium_work_time_per_day = round(medium_work_time_per_day_summ / 60) / project_work_days_amount
             hours_left = self.summary_work_time_evaluated_time_in_hours - medium_work_time_per_day_summ / 60
             days_left = hours_left / medium_work_time_per_day
-            return datetime.datetime.today().date() + datetime.timedelta(days=days_left)
+            return timezone.datetime.today().date() + datetime.timedelta(days=days_left)
 
     def __str__(self):
         return self.name
 
     def get_user_work_time(self, user, date, from_date=None, to_date=None):
-        seconds = 0
+        time = timezone.timedelta()
         if from_date is None or to_date is None:
             from_date = date
             to_date = date
@@ -167,8 +175,35 @@ class Project(models.Model):
             time_stop__range=(min_time, max_time)
         ).all()
         for time_record in time_records:
-            seconds += time_record.seconds
-        return round(seconds / 60)
+            time += time_record.time_interval
+
+        tasks_in_progress = IssueTypeUpdate.objects.filter(
+            project=self, is_current=True, type='in_progress', author=user,
+            time__gte=timezone.make_aware(
+                datetime.datetime.combine(from_date, datetime.datetime.min.time()),
+                timezone.get_default_timezone()
+            ),
+            time__lte=timezone.now(),
+        ).all()
+
+        result = {
+            'time': None,
+            'working_now': False
+        }
+        if len(tasks_in_progress) > 0:
+            for task_in_progress in tasks_in_progress:
+                if task_in_progress.time >= timezone.make_aware(
+                    datetime.datetime.combine(from_date, datetime.datetime.min.time()),
+                    timezone.get_default_timezone()
+                ):
+                    if timezone.now() <= timezone.make_aware(
+                        datetime.datetime.combine(to_date, datetime.datetime.max.time()),
+                        timezone.get_default_timezone()
+                    ):
+                        result['working_now'] = True
+                        time += timezone.now() - task_in_progress.time
+        result['time'] = time
+        return result
 
     def get_absolute_url(self):
         return reverse('HuskyJamGuru:project-detail', kwargs={'pk': self.pk})
@@ -231,11 +266,22 @@ class GitlabAuthorisation(models.Model):
         if records:
             earliest_record = records.last()
             monday_of_first_week = earliest_record.time_start.date() - \
-                datetime.timedelta(days=earliest_record.time_start.weekday())
+                timezone.timedelta(days=earliest_record.time_start.weekday())
             for i in range(0, (timezone.now().date() - monday_of_first_week).days + 1, 7):
-                start_date = monday_of_first_week + datetime.timedelta(days=i)
-                end_date = start_date + datetime.timedelta(days=6)
-                week_records = records.filter(time_start__gte=start_date).filter(time_start__lte=end_date)
+                start_date = monday_of_first_week + timezone.timedelta(days=i)
+                end_date = start_date + timezone.timedelta(days=6)
+                week_records = records.filter(
+                    time_start__gte=timezone.make_aware(
+                        datetime.datetime.combine(
+                            start_date, timezone.datetime.min.time()
+                        ), timezone.get_current_timezone()
+                    ),
+                    time_start__lte=timezone.make_aware(
+                        datetime.datetime.combine(
+                            end_date, timezone.datetime.max.time()
+                        ), timezone.get_current_timezone()
+                    )
+                )
 
                 week = {}
                 week['start_date'] = start_date
@@ -305,7 +351,7 @@ class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
     priority = models.IntegerField(editable=False)
-    rolled_up = models.BooleanField(default=False)
+    rolled_up = models.BooleanField(default=False)  # True если администратор свернул майлстоун на странице проекта
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -444,12 +490,14 @@ class GitLabIssue(GitlabSynchronizeMixin, models.Model):
             return None
 
     @property
-    def spent_minutes(self):
-        seconds = 0
+    def spent_time(self):
+        time = timezone.timedelta()
         for time_spent_record in IssueTimeSpentRecord.objects.filter(gitlab_issue=self).all():
-            seconds += time_spent_record.seconds
-        minutes = round(seconds / 60)
-        return minutes
+            time += time_spent_record.time_interval
+
+        if self.current_type.type == 'in_progress':
+            time += timezone.now() - IssueTypeUpdate.objects.filter(gitlab_issue=self).order_by('-pk')[0:1].get().time
+        return time
 
     @property
     def link(self):
@@ -482,11 +530,11 @@ class IssueTimeSpentRecord(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='issues_time_spent_records')
     gitlab_issue = models.ForeignKey(GitLabIssue, related_name='time_spent_records')
     time_start = models.DateTimeField()
-    time_stop = models.DateTimeField(blank=True, null=True)
+    time_stop = models.DateTimeField(auto_now=True)
 
     @property
-    def seconds(self):
-        return (self.time_stop - self.time_start).total_seconds()
+    def time_interval(self):
+        return self.time_stop - self.time_start
 
     class Meta:
         ordering = ['-time_start']
@@ -507,7 +555,6 @@ class IssueTypeUpdate(models.Model):
                     user=self.gitlab_issue.current_type.author,
                     gitlab_issue=self.gitlab_issue,
                     time_start=self.gitlab_issue.current_type.time,
-                    time_stop=datetime.datetime.now()
                 )
                 new_issue_time_spent_record.save()
             for previous in IssueTypeUpdate.objects.filter(gitlab_issue=self.gitlab_issue, is_current=True):

@@ -20,8 +20,7 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         issue = GitLabIssue.objects.get(pk=request.data['gitlab_issue'])
-        if issue.current_type.type != 'in_progress' \
-                and request.data['type'] == 'in_progress':
+        if issue.current_type.type != 'in_progress' and request.data['type'] == 'in_progress':
             issue.assignee = request.user.gitlabauthorisation
             issue.save()
             for type_update in IssueTypeUpdate.objects.filter(
@@ -40,7 +39,9 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
             issue.change_state_in_gitlab('close')
         elif issue.current_type.type == 'verified':
             issue.change_state_in_gitlab('reopen')
+        request.POST._mutable = True
         request.data['project'] = issue.gitlab_project.project.pk
+        request.POST._mutable = False
         return super(self.__class__, self).create(request, *args, **kwargs)
 
 
