@@ -10,7 +10,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
     ProjectUpdateView, PersonalTimeReportView, UserProfileView, RollMilestoneView
 from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, TelegramUser, PersonalDayWorkPlan
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalNotification, PersonalDayWorkPlan
 
 
 def create_data():
@@ -763,22 +763,24 @@ class UserProfileTest(TestCase):
 
     def test_page_contains_initialise_link_if_notifications_disabled(self):
         response = self.client.get(self.page_url)
-        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.notification.telegram_id)
         self.assertContains(response, initialise_link)
 
     def test_page_not_contains_initialise_link_if_notifications_enabled(self):
-        TelegramUser.objects.create(user=self.user, telegram_id='23455', notification_enabled=True)
+        PersonalNotification.objects.create(user=self.user, telegram_id='23455', enabled=True)
         response = self.client.get(self.page_url)
-        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.telegram_user.telegram_id)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.notification.telegram_id)
         self.assertNotContains(response, initialise_link)
 
     def test_page_saves_notification_events_correctly(self):
         data = {
-            'notification_events': ['note', 'push'],
+            'telegram_notification_events': ['note', 'push'],
+            'email_notification_events': ['issue_close', 'push'],
         }
         self.client.post(self.page_url, data)
 
-        self.assertEqual(self.user.telegram_user.notification_events, ['note', 'push'])
+        self.assertEqual(self.user.notification.email_notification_events, ['issue_close', 'push'])
+        self.assertEqual(self.user.notification.telegram_notification_events, ['note', 'push'])
 
     def test_page_returns_forbidden_if_request_from_other_user(self):
         response = self.client.get('/user-profile/156/')

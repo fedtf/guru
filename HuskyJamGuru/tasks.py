@@ -2,6 +2,7 @@ import logging
 import time
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 
 from Project.celery import app
 from .models import GitlabProject, GitLabIssue, GitLabMilestone
@@ -39,6 +40,7 @@ def send_notifications(webhook_info):
                                       project.name,
                                       webhook_info['object_attributes']['note'],
                                       webhook_info['object_attributes']['url'])
+        message_subject = 'New comment from {} in {}'.format(webhook_info['user']['name'], project.name)
     elif webhook_type == 'issue':
         action = webhook_info['object_attributes']['action']
         if action not in ['close', 'open']:
@@ -51,35 +53,40 @@ def send_notifications(webhook_info):
                                                            'closed' if action == 'close' else 'created',
                                                            webhook_info['user']['name'],
                                                            webhook_info['object_attributes']['url']))
+        message_subject = 'New issue {} in {}'.format(webhook_info['object_attributes']['title'], project.name)
     elif webhook_info == 'push':
-        message_text = ('A new push to the project {} came from {}.').format(project.name,
-                                                                             webhook_info['user']['name'])
+        message_text = 'A new push to the project {} came from {}.'.format(project.name,
+                                                                           webhook_info['user']['name'])
+        message_subject = 'New push in {}'.format(project.name)
     if message_text:
         for user in set(access.user for access in project.user_project_accesses.all()):
             try:
-                telegram_user = user.telegram_user
+                notification = user.notification
             except ObjectDoesNotExist:
                 continue
-            if telegram_user.notification_enabled and webhook_type in telegram_user.notification_events:
-                telegram_bot.sendMessage(chat_id=telegram_user.telegram_id, text=message_text)
+            if notification.enabled:
+                if webhook_type in notification.telegram_notification_events:
+                    telegram_bot.sendMessage(chat_id=notification.telegram_id, text=message_text)
+                if webhook_type in notification.email_notification_events:
+                    send_mail(message_subject, message_text, 'guru-notification@huskyjam.com', [user.email])
 
 
 @app.task
-def change_user_notification_state(new_state, telegram_user):
+def change_user_notification_state(new_state, notification):
     if new_state == 'disabled':
-        telegram_user.notification_enabled = False
-        telegram_user.save()
+        notification.notification_enabled = False
+        notification.save()
     elif new_state == 'enabled':
         for i in range(10):
             time.sleep(4)
             for update in telegram_bot.getUpdates():
-                if telegram_user.telegram_id in update.message.text:
-                    telegram_user.telegram_id = update.message.from_user.id
-                    telegram_user.notification_enabled = True
-                    telegram_user.save()
+                if notification.telegram_id in update.message.text:
+                    notification.telegram_id = update.message.from_user.id
+                    notification.enabled = True
+                    notification.save()
                     return
-        logger.info('Failed trying to subscribe user {} with id {}'.format(telegram_user,
-                                                                           telegram_user.telegram_id))
+        logger.info('Failed trying to subscribe user {} with telegram id {}'.format(notification.user,
+                                                                                    notification.telegram_id))
 
 
 @app.task

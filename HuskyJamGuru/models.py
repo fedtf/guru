@@ -565,7 +565,7 @@ class IssueTypeUpdate(models.Model):
         super(IssueTypeUpdate, self).save(*args, **kwargs)
 
 
-class TelegramUser(models.Model):
+class PersonalNotification(models.Model):
     EVENTS = (
         ('issue_create', 'Issue Opening'),
         ('issue_close', 'Issue Closing'),
@@ -573,10 +573,11 @@ class TelegramUser(models.Model):
         ('push', 'Push Events'),
     )
 
-    user = models.OneToOneField(User, related_name='telegram_user')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='notification')
     telegram_id = models.CharField(max_length=50, blank=True)
-    notification_events = MultiSelectField(choices=EVENTS, blank=True)
-    notification_enabled = models.BooleanField(default=False)
+    telegram_notification_events = MultiSelectField(choices=EVENTS, blank=True)
+    email_notification_events = MultiSelectField(choices=EVENTS, blank=True)
+    enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username

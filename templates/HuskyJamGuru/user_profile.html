@@ -1,14 +1,48 @@
 {% extends 'base.html' %}
 
+{% block preload %}
+    <style>
+        .choices, .events {
+            float: left;
+            padding: 0 10px;
+        }
+        .choices ul {
+            list-style:none;
+        }
+        .choices .choice {
+            text-align:center;
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
+<span>Choose kinds of events that you wan to be notified about, by telegram or by e-mail.</span>
 <form method="post" action=".">
-    {{ form.as_ul }}
+    <div class="events">
+        <br/>
+        <div>
+        {% for event in form.events %}
+            <div>{{ event }}</div>
+        {% endfor %}
+        </div>
+    </div>
+    {% for field in form %}
+    <div class="choices">
+        <span>{{ field.label }}</span>
+        <div>
+            {% for choice in field %}
+            <div class="choice">{{ choice.tag }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
     {% csrf_token %}
+    <div class="clearfix"></div>
     <input type="submit" value="Submit" name="submit">
 </form>
-{% if not user.telegram_user.notification_enabled %}
+{% if not user.notification.enabled %}
     <span>Notification disabled. To subscribe click on the link and then "Start" in the new conversation in your Telegram app.</span><br/>
-    <a class="change-notification-state" data-new-state="enabled" target = "_blank" href="https://telegram.me/HuskyJamGuruBot?start={{ user.telegram_user.telegram_id }}">Subscribe to notifications</a>
+    <a class="change-notification-state" data-new-state="enabled" target = "_blank" href="https://telegram.me/HuskyJamGuruBot?start={{ user.notification.telegram_id }}">Subscribe to notifications</a>
 {% else %}
     Notification enabled<br/>
     <a class="change-notification-state" data-new-state="disabled" href="#">Disable Notification</a>

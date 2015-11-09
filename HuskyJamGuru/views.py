@@ -19,7 +19,7 @@ from celery.result import AsyncResult
 
 from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
 from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
-    GitLabMilestone, GitlabProject, TelegramUser, PersonalDayWorkPlan
+    GitLabMilestone, GitlabProject, PersonalNotification, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
 from .tasks import send_notifications, change_user_notification_state, pull_new_issue_from_gitlab
 
@@ -379,7 +379,7 @@ class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
 
     def test_func(self, user):
         try:
-            self.telegram_user = user.telegram_user
+            self.notification = user.notification
         except ObjectDoesNotExist:
             return False
 
@@ -388,8 +388,7 @@ class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
     def post(self, request, *args, **kwargs):
         new_state = request.POST.get('new_state')
         if new_state:
-            logger.info(new_state)
-            task = change_user_notification_state.delay(new_state, self.telegram_user)
+            task = change_user_notification_state.delay(new_state, self.notification)
             return HttpResponse(task.id)
         else:
             return HttpResponseBadRequest()
@@ -398,8 +397,8 @@ class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
 class UserProfileView(braces_views.LoginRequiredMixin,
                       braces_views.UserPassesTestMixin,
                       UpdateView):
-    model = TelegramUser
-    fields = ['notification_events']
+    model = PersonalNotification
+    fields = ['telegram_notification_events', 'email_notification_events']
     template_name = 'HuskyJamGuru/user_profile.html'
     success_url = reverse_lazy("HuskyJamGuru:project-list")
     raise_exception = True
@@ -409,12 +408,14 @@ class UserProfileView(braces_views.LoginRequiredMixin,
 
     def get_object(self):
         try:
-            telegram_user = self.request.user.telegram_user
+            notification = self.request.user.notification
         except ObjectDoesNotExist:
-            telegram_user = TelegramUser.objects.create(user=self.request.user, telegram_id=uuid.uuid4().hex)
-        return telegram_user
+            notification = PersonalNotification.objects.create(user=self.request.user, telegram_id=uuid.uuid4().hex)
+        return notification
 
     def get_form(self, form_class):
         form = super(UserProfileView, self).get_form(form_class)
-        form['notification_events'].label = 'Choose kinds of events that you whant to be notified about:'
+        form.events = [event[1] for event in self.get_object().EVENTS]
+        form.fields['telegram_notification_events'].label = 'Telegram'
+        form.fields['email_notification_events'].label = 'E-mail'
         return form
