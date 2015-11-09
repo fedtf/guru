@@ -1,7 +1,7 @@
 FROM ubuntu:14.04
 
 RUN apt-get update && \
-	apt-get install -y libxml2-dev libxslt1-dev python3-dev python3-setuptools python3.4 build-essential python3-pip nginx libpq-dev mysql-client libmysqlclient-dev
+	apt-get install -y libxml2-dev libxslt1-dev python3-dev python3-setuptools python3.4 build-essential python3-pip nginx libpq-dev mysql-client libmysqlclient-dev postfix
 
 COPY requirements-develop.txt /opt/app/requirements-develop.txt
 COPY requirements.txt /opt/app/requirements.txt
@@ -19,5 +19,8 @@ RUN python3 /opt/app/manage.py collectstatic --settings=Project.production_setti
 
 RUN rm /etc/nginx/sites-enabled/default;
 RUN ln -s /opt/app/Deploy/nginx.conf /etc/nginx/sites-enabled/;
+
+RUN rm /etc/postfix/main.cf;
+RUN ln -s /opt/app/Deploy/postfix.conf /etc/postfix/main.cf;
 
 EXPOSE 80
