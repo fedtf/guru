@@ -11,3 +11,4 @@ django-celery
 python-telegram-bot
 django-multiselectfield
 mock
+six>=1.7
