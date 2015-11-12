@@ -6,4 +6,9 @@ requests_oauthlib
 djangorestframework
 django-debug-toolbar
 django-braces
+celery
+django-celery
+python-telegram-bot
+django-multiselectfield
 mock
+six>=1.7

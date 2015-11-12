@@ -57,16 +57,20 @@
                         {% endif %}
                     </a></li>
                     {% if user.is_superuser %}
-                        <li><a href="{% url 'admin:index' %}">System administration</a></li>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                        <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
-                        <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
+                        <li class="dropdown">
+                          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Admin features <span class="caret"></span></a>
+                          <ul class="dropdown-menu">
+                            <li><a href="{% url 'admin:index' %}">System administration</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:work-report-list' %}">Users task history</a></li>
+                            <li><a href="{% url 'HuskyJamGuru:resource-management' %}">Resource management</a></li>
+                          </ul>
+                        </li>
                     {% endif %}
                 {% endif %}
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 {% if user.is_authenticated %}
+                    <li><a href="{% url 'HuskyJamGuru:user-profile' user.pk %}">My Profile</a></li>
                     <li><a href="{% url 'logout' %}">Logout ({{ user.gitlabauthorisation.name }})</a></li>
                 {% else %}
                     <li><a href="{% url 'HuskyJamGuru:login' %}">Login</a></li>
@@ -94,11 +98,42 @@
             syncButton.text("Doing smth strange...");
             $.ajax({
                 url: "/synchronise-with-gitlab"
-            }).done(function( issues ) {
-                syncButton.text("Synchronised successfully");
-            });
+            }).done(function(taskId) {
+                    CheckIfTaskIsDone(taskId, function() { syncButton.text("Synchronised successfully"); }); 
+                });
         });
     });
+
+    function CheckIfTaskIsDone(taskId, callback, checkPeriod) {
+
+        var period = checkPeriod || 3000;
+        var checkTimes = 0;
+        var timer = setInterval(ajaxTaskStatusCheck, period);
+        
+        function ajaxTaskStatusCheck() {
+            $.ajax({
+                url: "{% url 'HuskyJamGuru:check-if-task-is-done' %}",
+                data: {
+                    task_id: taskId,
+                },
+                success: function(task) {
+                    console.log('task', task)
+                    if (task.status == 'SUCCESS') {
+                        clearInterval(timer);
+                        callback();
+                    } else if (checkTimes >= 9) {
+                        clearInterval(timer);    
+                    } 
+                    checkTimes++;
+                },
+                error: function(response) {
+                    console.log('error done', response);
+                }
+            });
+        }
+    }
+
+
 </script>
 {% bootstrap_javascript %}
 </body>

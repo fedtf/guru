@@ -7,14 +7,13 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm
 
-from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView, \
-    ProjectUpdateView, PersonalTimeReportView
-from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone, \
-    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalDayWorkPlan
+from .views import ProjectDetailView, WorkReportListView, ProjectReportView, LoginAsGuruUserView,\
+    ProjectUpdateView, PersonalTimeReportView, UserProfileView, RollMilestoneView
+from .models import Project, IssueTypeUpdate, GitlabProject, GitLabIssue, GitLabMilestone,\
+    UserToProjectAccess, GitlabAuthorisation, IssueTimeSpentRecord, PersonalNotification, PersonalDayWorkPlan
 
 
 def create_data():
-    # creates test data for tests
     project = Project(name='testproject', creation_date=timezone.now(),
                       work_start_date=timezone.now())
     project.save()
@@ -476,7 +475,7 @@ class ProjectUpdateTest(TestCase):
         self.assertEqual(project.issues_types_tuple, expected_tuple)
 
 
-class MilestoneSortTest(TestCase):
+class SortMilestoneTest(TestCase):
     def setUp(self):
         get_user_model().objects.create_superuser(username='test', password='testpass',
                                                   email='testadmin@example.com')
@@ -493,11 +492,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile2.pk), data)
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
         self.assertEqual(milestones[0], mile2)
@@ -505,10 +503,9 @@ class MilestoneSortTest(TestCase):
         self.assertEqual(milestones[2], mile3)
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        self.client.post('/sort-milestones', data)
+        self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         milestones = GitlabProject.objects.first().gitlab_milestones.all()
 
@@ -520,11 +517,10 @@ class MilestoneSortTest(TestCase):
         mile1, mile2, mile3 = create_data()
 
         data = {
-            'milestone_id': mile2.pk,
             'direction': 'up',
         }
 
-        response = self.client.post('/sort-milestones', data,
+        response = self.client.post('/sort-milestone/{}'.format(mile2.pk), data,
                                     HTTP_X_REQUESTED_WITH='XMLHttpRequest')
 
         self.assertEqual(response.status_code, 200)
@@ -542,10 +538,9 @@ class MilestoneSortTest(TestCase):
         self.client.login(username='testuser', password='testpass')
 
         data = {
-            'milestone_id': mile1.pk,
             'direction': 'down',
         }
-        response = self.client.post('/sort-milestones', data)
+        response = self.client.post('/sort-milestone/{}'.format(mile1.pk), data)
 
         self.assertEqual(response.status_code, 403)
 
@@ -744,3 +739,80 @@ class PersonalTimeReportTest(TestCase):
 
         self.assertTrue(found_week1)
         self.assertTrue(found_week2)
+
+
+class UserProfileTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        GitlabAuthorisation.objects.create(user=self.user, gitlab_user_id=5, token='blablabla')
+        self.page_url = '/user-profile/{}/'.format(self.user.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, UserProfileView.__name__)
+
+    def test_page_responds_with_200(self):
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self):
+        response = self.client.get(self.page_url)
+        self.assertTemplateUsed(response, 'HuskyJamGuru/user_profile.html')
+
+    def test_page_contains_initialise_link_if_notifications_disabled(self):
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.notification.telegram_id)
+        self.assertContains(response, initialise_link)
+
+    def test_page_not_contains_initialise_link_if_notifications_enabled(self):
+        PersonalNotification.objects.create(user=self.user, telegram_id='23455', enabled=True)
+        response = self.client.get(self.page_url)
+        initialise_link = 'https://telegram.me/HuskyJamGuruBot?start={}'.format(self.user.notification.telegram_id)
+        self.assertNotContains(response, initialise_link)
+
+    def test_page_saves_notification_events_correctly(self):
+        data = {
+            'telegram_notification_events': ['note', 'push'],
+            'email_notification_events': ['issue_close', 'push'],
+        }
+        self.client.post(self.page_url, data)
+
+        self.assertEqual(self.user.notification.email_notification_events, ['issue_close', 'push'])
+        self.assertEqual(self.user.notification.telegram_notification_events, ['note', 'push'])
+
+    def test_page_returns_forbidden_if_request_from_other_user(self):
+        response = self.client.get('/user-profile/156/')
+        self.assertEqual(response.status_code, 403)
+
+
+class RollMilestoneTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(username='test', password='testpass',
+                                                              email='testadmin@example.com')
+        self.client.login(username='test', password='testpass')
+        self.mile, _, _ = create_data()
+        self.page_url = '/roll-milestone/{}'.format(self.mile.pk)
+
+    def test_url_resolves_to_right_view(self):
+        found = resolve(self.page_url)
+        self.assertEqual(found.func.__name__, RollMilestoneView.__name__)
+
+    def test_page_redirects_on_get(self):
+        response = self.client.get(self.page_url)
+        self.assertRedirects(response, reverse('HuskyJamGuru:project-list'))
+
+    def test_page_returns_403_if_not_superuser(self):
+        get_user_model().objects.create_user(username='notsuper', password='testpass')
+        self.client.login(username='notsuper', password='testpass')
+        response = self.client.get(self.page_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_miletone_roll_state_toggles(self):
+        self.mile.rolled_up = False
+        self.mile.save()
+
+        self.client.post(self.page_url)
+
+        self.assertEqual(GitLabMilestone.objects.get(pk=self.mile.pk).rolled_up, True)

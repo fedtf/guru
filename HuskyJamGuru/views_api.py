@@ -2,7 +2,6 @@ from rest_framework import viewsets
 
 from .serializers import IssueTypeUpdateSerializer, GitLabIssueSerializer, IssueTimeSpentRecordSerializer
 from .models import IssueTypeUpdate, GitLabIssue, IssueTimeSpentRecord
-from Project.gitlab import reassign_issue
 
 
 class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
@@ -35,7 +34,11 @@ class IssueTypeUpdateViewSet(viewsets.ModelViewSet):
                         project_id=type_update.gitlab_issue.gitlab_project.project
                     )
                     new_update.save()
-            reassign_issue(request, issue, request.user.gitlabauthorisation)
+            issue.reassign_to_user(request.user)
+        if request.data['type'] == 'verified':
+            issue.change_state_in_gitlab('close')
+        elif issue.current_type.type == 'verified':
+            issue.change_state_in_gitlab('reopen')
         request.POST._mutable = True
         request.data['project'] = issue.gitlab_project.project.pk
         request.POST._mutable = False
@@ -47,7 +50,11 @@ class GitLabIssueViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if 'project_pk' in self.request.query_params:
-                return GitLabIssue.objects.filter(gitlab_project__project=self.request.query_params['project_pk']).all()
+            return GitLabIssue.objects.filter(gitlab_project__project=self.request.query_params['project_pk']).all()
+        elif 'milestone_pk' in self.request.query_params:
+            return GitLabIssue.objects.filter(gitlab_milestone=self.request.query_params['milestone_pk']).all()
+        elif 'issue_pk' in self.request.query_params:
+            return GitLabIssue.objects.get(pk=self.request.query_params['issue_pk'])
         return GitLabIssue.objects.all()
 
 

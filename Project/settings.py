@@ -44,6 +44,8 @@ INSTALLED_APPS = (
     'HuskyJamGuru',
     'rest_framework',
     'debug_toolbar',
+    'kombu.transport.django',
+    'djcelery',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -91,6 +93,9 @@ DATABASES = {
     }
 }
 
+CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
+BROKER_URL = 'django://'
+CELERY_ACCEPT_CONTENT = ['pickle', 'json', 'msgpack', 'yaml']
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -118,6 +123,8 @@ GITLAB_URL = 'http://185.22.60.142:8889'
 GITLAB_APPLICATION_ID = '9bc472164fc76c3dda596f01205cba2bb63a47d4e57d59fd5dd01762b3042721'
 GITLAB_APPLICATION_SECRET = 'b3d2981b461dded4655810765b2e898ced9fd55a277348a1502607960da5c1f2'
 
+TELEGRAM_BOT_TOKEN = '120588339:AAEoCfGkxPMOcbtlDXP31xPvH_v7hUD_eho'
+
 SITE_ID = 1
 
 LOGIN_URL = '/login'
@@ -131,4 +138,48 @@ LOGIN_REQUIRED_URLS_EXCEPTIONS = (
     r'/login(.*)$',
     r'/admin(.*)$',
     r'/gitlab_auth_callback(.*)$',
+    r'/{}(.*)$'.format(TELEGRAM_BOT_TOKEN),
+    r'/gitlab-webhook(.*)$',
 )
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            'datefmt': "%d/%b/%Y %H/%M/%S",
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'HuskyJamGuru': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'huskyjamguru@gmail.com'
+EMAIL_HOST_PASSWORD = 'jamhusky7'

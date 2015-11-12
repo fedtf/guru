@@ -1,26 +1,30 @@
+import uuid
+import json
 import datetime
+import logging
 
 from django.conf import settings
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, FormView, View
+from django.views.generic.detail import SingleObjectMixin
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect, HttpResponseBadRequest
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect, render
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.core.exceptions import ObjectDoesNotExist
 
 from braces import views as braces_views
+from celery.result import AsyncResult
 
-from Project.gitlab import load_new_and_update_existing_projects_from_gitlab, fix_milestones_id
-from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue, \
-    GitLabMilestone, PersonalDayWorkPlan
+from Project.gitlab import load_new_and_update_existing_projects_from_gitlab
+from .models import Project, UserToProjectAccess, IssueTimeAssessment, GitLabIssue,\
+    GitLabMilestone, GitlabProject, PersonalNotification, PersonalDayWorkPlan
 from .forms import PersonalPlanForm, ProjectFormSet, ProjectForm
+from .tasks import send_notifications, change_user_notification_state, pull_new_issue_from_gitlab
 
 
-def milestones_fix(request):
-    fix_milestones_id(request)
-    return redirect(reverse_lazy('HuskyJamGuru:project-list'))
+logger = logging.getLogger(__name__)
 
 
 class Login(TemplateView):
@@ -109,9 +113,53 @@ class ProjectListView(ListView):
         return context
 
 
+class UpdateItemFromGitlabView(braces_views.LoginRequiredMixin,
+                               braces_views.AjaxResponseMixin,
+                               View):
+    def get_ajax(self, request, *args, **kwargs):
+        item_name = request.GET.get('item_name')
+        item_pk = request.GET.get('item_pk')
+
+        item = False
+
+        if item_name == 'project':
+            item = Project.objects.get(pk=item_pk)
+        elif item_name == 'gitlab_project':
+            item = GitlabProject.objects.get(pk=item_pk)
+        elif item_name == 'milestone':
+            item = GitLabMilestone.objects.get(pk=item_pk)
+        elif item_name == 'issue':
+            item = GitLabIssue.objects.get(pk=item_pk)
+
+        if not item:
+            return HttpResponseNotFound()
+
+        task = item.update_from_gitlab.delay()
+
+        return HttpResponse(task.id)
+
+
 def synchronise_with_gitlab(request):
-    load_new_and_update_existing_projects_from_gitlab(request)
-    return HttpResponse()
+    task = load_new_and_update_existing_projects_from_gitlab.delay()
+    return HttpResponse(task.id)
+
+
+class CheckIfTaskIsDoneView(braces_views.LoginRequiredMixin,
+                            braces_views.AjaxResponseMixin,
+                            braces_views.JSONResponseMixin,
+                            View):
+    raise_exception = True
+
+    def get_ajax(self, request):
+        task_id = request.GET.get('task_id')
+
+        result = AsyncResult(task_id)
+
+        task = {
+            'status': result.status,
+            'id': result.id,
+        }
+        return self.render_json_response(task)
 
 
 class ProjectDetailView(DetailView):
@@ -180,45 +228,63 @@ class ProjectUpdateView(braces_views.LoginRequiredMixin,
         return HttpResponseRedirect(self.get_success_url())
 
 
-class SortMilestonesView(braces_views.LoginRequiredMixin,
-                         braces_views.SuperuserRequiredMixin,
-                         View):
+class ConfigureMilestoneView(braces_views.LoginRequiredMixin,
+                             braces_views.SuperuserRequiredMixin,
+                             SingleObjectMixin,
+                             View):
+    # Base view for changing privileged milestone properties.
     raise_exception = True
+    model = GitLabMilestone
 
-    def get(self, request):
-        return render(reverse_lazy('project-list'))
+    def configure_milestone(self, milestone):
+        raise NotImplementedError('You should provide configure_milestone method.')
+
+    def get(self, request, *args, **kwargs):
+        return redirect(reverse_lazy('HuskyJamGuru:project-list'))
 
     def post(self, request, *args, **kwargs):
-        milestone_id = request.POST.get('milestone_id')
-        direction = request.POST.get('direction')
-
-        milestone = GitLabMilestone.objects.get(pk=milestone_id)
-        milestone_priority = milestone.priority
-
-        if direction == 'up':
-            next_milestone = milestone.gitlab_project.gitlab_milestones \
-                .filter(priority__lt=milestone_priority).last()
-            if next_milestone is not None:
-                milestone.priority = next_milestone.priority
-                next_milestone.priority = milestone_priority
-
-                milestone.save()
-                next_milestone.save()
-        elif direction == 'down':
-            prev_milestone = milestone.gitlab_project.gitlab_milestones \
-                .filter(priority__gt=milestone_priority).first()
-            if prev_milestone is not None:
-                milestone.priority = prev_milestone.priority
-                prev_milestone.priority = milestone_priority
-
-                milestone.save()
-                prev_milestone.save()
+        milestone = self.get_object()
+        try:
+            self.configure_milestone(milestone)
+        except Exception as e:
+            return HttpResponseBadRequest(e)
 
         if request.is_ajax():
             return HttpResponse()
 
         return redirect(reverse_lazy('HuskyJamGuru:project-detail',
                                      kwargs={'pk': milestone.gitlab_project.project.pk}))
+
+
+class SortMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        direction = self.request.POST.get('direction')
+
+        milestone_priority = milestone.priority
+
+        if direction == 'up':
+            swap_milestone = milestone.gitlab_project.gitlab_milestones \
+                .filter(priority__lt=milestone_priority).last()
+        elif direction == 'down':
+            swap_milestone = milestone.gitlab_project.gitlab_milestones \
+                .filter(priority__gt=milestone_priority).first()
+        else:
+            raise Exception("Invalid direction.")
+
+        if swap_milestone is not None:
+            milestone.priority = swap_milestone.priority
+            swap_milestone.priority = milestone_priority
+
+            milestone.save()
+            swap_milestone.save()
+        else:
+            raise Exception("Can't move first milestone higher, or last - lower.")
+
+
+class RollMilestoneView(ConfigureMilestoneView):
+    def configure_milestone(self, milestone):
+        milestone.rolled_up = not milestone.rolled_up
+        milestone.save()
 
 
 class ProjectReportView(DetailView):
@@ -294,3 +360,62 @@ class PersonalTimeReportView(braces_views.LoginRequiredMixin,
     template_name = 'HuskyJamGuru/personal_time_report.html'
     context_object_name = 'report_user'
     prefetch_related = ['issues_time_spent_records__gitlab_issue__gitlab_milestone']
+
+
+class GitlabWebhookView(braces_views.CsrfExemptMixin, View):
+    def post(self, request, *args, **kwargs):
+        if request.body:
+            webhook_info = json.loads(request.body.decode('utf-8'))
+            send_notifications.delay(webhook_info)
+            if webhook_info['object_kind'] == 'issue' and webhook_info['object_attributes']['action'] != 'close':
+                pull_new_issue_from_gitlab.delay(webhook_info)
+        return HttpResponse()
+
+
+class ChangeUserNotificationStateView(braces_views.LoginRequiredMixin,
+                                      braces_views.UserPassesTestMixin,
+                                      View):
+    raise_exception = True
+
+    def test_func(self, user):
+        try:
+            self.notification = user.notification
+        except ObjectDoesNotExist:
+            return False
+
+        return str(user.pk) == self.kwargs.get('user_pk')
+
+    def post(self, request, *args, **kwargs):
+        new_state = request.POST.get('new_state')
+        if new_state:
+            task = change_user_notification_state.delay(new_state, self.notification)
+            return HttpResponse(task.id)
+        else:
+            return HttpResponseBadRequest()
+
+
+class UserProfileView(braces_views.LoginRequiredMixin,
+                      braces_views.UserPassesTestMixin,
+                      UpdateView):
+    model = PersonalNotification
+    fields = ['telegram_notification_events', 'email_notification_events']
+    template_name = 'HuskyJamGuru/user_profile.html'
+    success_url = reverse_lazy("HuskyJamGuru:project-list")
+    raise_exception = True
+
+    def test_func(self, user):
+        return str(user.pk) == self.kwargs.get('pk')
+
+    def get_object(self):
+        try:
+            notification = self.request.user.notification
+        except ObjectDoesNotExist:
+            notification = PersonalNotification.objects.create(user=self.request.user, telegram_id=uuid.uuid4().hex)
+        return notification
+
+    def get_form(self, form_class):
+        form = super(UserProfileView, self).get_form(form_class)
+        form.events = [event[1] for event in self.get_object().EVENTS]
+        form.fields['telegram_notification_events'].label = 'Telegram'
+        form.fields['email_notification_events'].label = 'E-mail'
+        return form

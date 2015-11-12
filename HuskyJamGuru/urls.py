@@ -2,9 +2,10 @@ from django.conf.urls import url, include
 from django.views.decorators.cache import cache_page
 
 from HuskyJamGuru.views import Login, ProjectListView, ProjectDetailView, IssueTimeAssessmentCreate,\
-    synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestonesView,\
-    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, milestones_fix, ResourceManagementView, \
-    PersonalPlanUpdateView
+    synchronise_with_gitlab, WorkReportListView, ProjectReportView, SortMilestoneView,\
+    LoginAsGuruUserView, ProjectUpdateView, PersonalTimeReportView, UpdateItemFromGitlabView,\
+    CheckIfTaskIsDoneView, UserProfileView, GitlabWebhookView, PersonalPlanUpdateView,\
+    ResourceManagementView, ChangeUserNotificationStateView, RollMilestoneView
 
 
 urlpatterns = [
@@ -18,8 +19,17 @@ urlpatterns = [
     url(r'^project-update/(?P<pk>\d+)/$', ProjectUpdateView.as_view(), name='project-update'),
     url(r'^project-report/(?P<pk>\d+)/$', ProjectReportView.as_view(), name='project-report'),
     url(r'^personal-time-report/(?P<pk>\d+)/$', PersonalTimeReportView.as_view(), name='personal-time-report'),
-    url(r'^sort-milestones$', SortMilestonesView.as_view(), name='sort-milestones'),
-    url(r'^milestones-fix/$', milestones_fix, name='milestones-fix'),
+    url(r'^user-profile/(?P<pk>\d+)/$', UserProfileView.as_view(), name='user-profile'),
+    url(r'^sort-milestone/(?P<pk>\d+)$', SortMilestoneView.as_view(), name='sort-milestone'),
+    url(r'^roll-milestone/(?P<pk>\d+)$', RollMilestoneView.as_view(), name='roll-milestone'),
+    url(r'^update-item-from-gitlab/$', UpdateItemFromGitlabView.as_view(), name='update-item-from-gitlab'),
+    url(r'^check-if-task-is-done/$', CheckIfTaskIsDoneView.as_view(), name='check-if-task-is-done'),
+    url(
+        r'^change-user-notification-state/(?P<user_pk>\d+)$',
+        ChangeUserNotificationStateView.as_view(),
+        name='change-user-notification-state'
+    ),
+    url(r'^gitlab-webhook', GitlabWebhookView.as_view(), name='gitlab_webhook'),
     url(
         r'^issue-time-assessment-create/(?P<issue_pk>\d+)/$',
         IssueTimeAssessmentCreate.as_view(),

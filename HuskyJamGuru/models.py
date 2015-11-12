@@ -1,12 +1,54 @@
 import datetime
+import json
+import logging
 
 from django.utils.functional import cached_property
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
 from django.core.urlresolvers import reverse
+
+from requests_oauthlib import OAuth2Session
+from celery.contrib.methods import task_method
+from multiselectfield import MultiSelectField
+
+from Project.celery import app
+
+
+logger = logging.getLogger(__name__)
+
+
+class GitlabSynchronizeMixin(object):
+    @classmethod
+    def gitlab(cls):
+        superuser = get_user_model().objects.filter(is_superuser=True).first()
+        return OAuth2Session(settings.GITLAB_APPLICATION_ID,
+                             token=json.loads(superuser.gitlabauthorisation.token.replace("'", '"')))
+
+    @classmethod
+    def pull_from_gitlab(cls, request_path):
+        response = cls.gitlab().get('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path))
+        if response.status_code == 200:
+            data = json.loads(response.content.decode('utf-8'))
+            if type(data) != list:
+                data = [data]
+            return data
+        else:
+            logger.warning(("Gitlab api returned not 200, "
+                            "it returned {} with reason {} on {}").format(response.status_code,
+                                                                          response.reason,
+                                                                          request_path))
+            return []
+
+    @classmethod
+    def push_to_gitlab(cls, request_path, push_data, type='update'):
+        if type == 'update':
+            return cls.gitlab().put('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path), push_data)
+        elif type == 'create':
+            return cls.gitlab().post('{}/api/v3/{}'.format(settings.GITLAB_URL, request_path), push_data)
 
 
 class WorkTimeEvaluation(models.Model):
@@ -41,6 +83,11 @@ class Project(models.Model):
     work_start_date = models.DateField(null=True, blank=True)
     deadline_date = models.DateField(null=True, blank=True)
     issues_types = models.TextField(default='open, in progress, fixed, verified')
+
+    @app.task(filter=task_method, name="Project.update_from_gitlab")
+    def update_from_gitlab(self):
+        for gitlab_project in self.gitlab_projects.all():
+            gitlab_project.update_from_gitlab()
 
     @cached_property
     def issues(self):
@@ -199,7 +246,7 @@ class GitlabAuthorisation(models.Model):
     @property
     def user_projects_issues_statistics(self):
         # Returns the dictionary with the numbers of
-        # all open and open and unassigned issues
+        # all open and (open and unassigned) issues
         # in all projects that user has access to.
         user_projects_issues_statistics = {'open': 0, 'unassigned': 0}
 
@@ -262,11 +309,28 @@ class GitlabModelExtension(models.Model):
     gitlab_id = models.IntegerField(unique=True, blank=None)
 
 
-class GitlabProject(GitlabModelExtension):
+class GitlabProject(GitlabSynchronizeMixin, GitlabModelExtension):
     name = models.CharField(max_length=500, unique=False, blank=True)
     name_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
     project = models.ForeignKey('Project', related_name='gitlab_projects', null=True, blank=True)
     path_with_namespace = models.CharField(max_length=500, unique=False, blank=True)
+
+    @classmethod
+    def pull_from_gitlab(cls, request_path='projects'):
+        projects = super(GitlabProject, cls).pull_from_gitlab(request_path)
+        for project in projects:
+            gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
+            gitlab_project.name = project['name']
+            gitlab_project.path_with_namespace = project['path_with_namespace']
+            gitlab_project.name_with_namespace = project['name_with_namespace']
+            gitlab_project.creation_time = project['created_at']
+            gitlab_project.save()
+
+    @app.task(filter=task_method, name="GitlabProject.update_from_gitlab")
+    def update_from_gitlab(self):
+        GitlabProject.pull_from_gitlab('projects/{}'.format(self.gitlab_id))
+        GitLabMilestone.pull_from_gitlab('projects/{}/milestones'.format(self.gitlab_id))
+        GitLabIssue.pull_from_gitlab('projects/{}/issues'.format(self.gitlab_id))
 
     @property
     def gitlab_opened_milestones(self):
@@ -280,13 +344,14 @@ class GitlabProject(GitlabModelExtension):
         return self.name_with_namespace
 
 
-class GitLabMilestone(models.Model):
+class GitLabMilestone(GitlabSynchronizeMixin, models.Model):
     gitlab_milestone_id = models.IntegerField(unique=False, blank=None)
     gitlab_milestone_iid = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='gitlab_milestones')
     name = models.CharField(max_length=500, unique=False, blank=True)
     closed = models.BooleanField(default=False)
     priority = models.IntegerField(editable=False)
+    rolled_up = models.BooleanField(default=False)  # True если администратор свернул майлстоун на странице проекта
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -296,6 +361,34 @@ class GitLabMilestone(models.Model):
             else:
                 self.priority = 1
         super(GitLabMilestone, self).save(*args, **kwargs)
+
+    @classmethod
+    def pull_from_gitlab(cls, request_path='milestones'):
+        if request_path == 'milestones':
+            for gitlab_project in GitlabProject.objects.all():
+                # No api endpoint for getting all milestones without projects.
+                milestones = super(GitLabMilestone, cls).pull_from_gitlab('projects/{}/milestones'
+                                                                          .format(gitlab_project.gitlab_id))
+        else:
+            milestones = super(GitLabMilestone, cls).pull_from_gitlab(request_path)
+        for milestone in milestones:
+            gitlab_milestone = GitLabMilestone.objects.get_or_create(
+                gitlab_milestone_id=milestone['id'],
+                gitlab_milestone_iid=milestone['iid'],
+                gitlab_project=GitlabProject.objects.get(gitlab_id=milestone['project_id'])
+            )[0]
+            gitlab_milestone.name = milestone['title']
+            gitlab_milestone.closed = milestone['state'] != 'active'
+            gitlab_milestone.save()
+
+    @app.task(filter=task_method, name="GitLabMilestone.update_from_gitlab")
+    def update_from_gitlab(self):
+        GitLabMilestone.pull_from_gitlab('projects/{}/milestones/{}'
+                                         .format(self.gitlab_project.gitlab_id,
+                                                 self.gitlab_milestone_id))
+        GitLabIssue.pull_from_gitlab('projects/{}/issues?milestone={}'
+                                     .format(self.gitlab_project.gitlab_id,
+                                             self.name))
 
     @property
     def create_issue_link(self):
@@ -313,7 +406,7 @@ class GitLabMilestone(models.Model):
         ordering = ['priority']
 
 
-class GitLabIssue(models.Model):
+class GitLabIssue(GitlabSynchronizeMixin, models.Model):
     gitlab_issue_id = models.IntegerField(unique=False, blank=None)
     gitlab_project = models.ForeignKey('GitlabProject', unique=False, blank=None, related_name='issues')
 
@@ -326,6 +419,52 @@ class GitLabIssue(models.Model):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def pull_from_gitlab(cls, request_path='issues'):
+        issues = super(GitLabIssue, cls).pull_from_gitlab(request_path)
+        for issue in issues:
+            gitlab_issue = GitLabIssue.objects.get_or_create(
+                gitlab_issue_iid=issue['iid'],
+                gitlab_issue_id=issue['id'],
+                gitlab_project=GitlabProject.objects.get(gitlab_id=issue['project_id'])
+            )[0]
+            gitlab_issue.name = issue['title']
+            if issue['milestone'] is not None:
+                gitlab_issue.gitlab_milestone = GitLabMilestone.objects.get(
+                    gitlab_milestone_id=issue['milestone']['id'],
+                )
+            else:
+                gitlab_issue.gitlab_milestone = None
+            if issue['assignee'] is not None:
+                try:
+                    gitlab_issue.assignee = GitlabAuthorisation.objects.get(gitlab_user_id=issue['assignee']['id'])
+                except ObjectDoesNotExist:
+                    pass
+            else:
+                gitlab_issue.assignee = None
+            gitlab_issue.description = issue['description']
+            gitlab_issue.updated_at = issue['updated_at']
+            gitlab_issue.save()
+
+    @app.task(filter=task_method, name="GitLabIssue.update_from_gitlab")
+    def update_from_gitlab(self):
+        GitLabIssue.pull_from_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                    self.gitlab_issue_id))
+
+    def reassign_to_user(self, user):
+        data = {
+            'assignee_id': user.gitlabauthorisation.gitlab_user_id,
+        }
+        GitLabIssue.push_to_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                  self.gitlab_issue_id,), data)
+
+    def change_state_in_gitlab(self, new_state):
+        data = {
+            'state_event': new_state,
+        }
+        GitLabIssue.push_to_gitlab('projects/{}/issues/{}'.format(self.gitlab_project.gitlab_id,
+                                                                  self.gitlab_issue_id,), data)
 
     @property
     def current_type(self):
@@ -424,6 +563,24 @@ class IssueTypeUpdate(models.Model):
 
         self.project = self.gitlab_issue.gitlab_project.project
         super(IssueTypeUpdate, self).save(*args, **kwargs)
+
+
+class PersonalNotification(models.Model):
+    EVENTS = (
+        ('issue_create', 'Issue Opening'),
+        ('issue_close', 'Issue Closing'),
+        ('note', 'New Comments'),
+        ('push', 'Push Events'),
+    )
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='notification')
+    telegram_id = models.CharField(max_length=50, blank=True)
+    telegram_notification_events = MultiSelectField(choices=EVENTS, blank=True)
+    email_notification_events = MultiSelectField(choices=EVENTS, blank=True)
+    enabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.user.username
 
 
 class PersonalDayWorkPlan(models.Model):

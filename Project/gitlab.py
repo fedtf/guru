@@ -1,3 +1,5 @@
+import json
+
 from requests_oauthlib import OAuth2Session
 from django.contrib.auth import login as django_login
 from django.contrib.auth.models import User
@@ -6,7 +8,7 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.conf import settings
 
-import json
+from Project.celery import app
 
 from HuskyJamGuru.models import GitlabAuthorisation, GitlabProject, GitLabMilestone, GitLabIssue
 
@@ -70,88 +72,8 @@ def reassign_issue(request, issue, gitlab_user):
     ).content.decode("utf-8")
 
 
-def load_new_and_update_existing_projects_from_gitlab(request):
-    projects = json.loads(
-        get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
-    )
-    for project in projects:
-        gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
-        gitlab_project.name = project['name']
-        gitlab_project.path_with_namespace = project['path_with_namespace']
-        gitlab_project.name_with_namespace = project['name_with_namespace']
-        gitlab_project.creation_time = project['created_at']
-        gitlab_project.save()
-        milestones = json.loads(
-            get_gitlab(request).get(
-                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/milestones"
-            ).content.decode("utf-8")
-        )
-        for milestone in milestones:
-            gitlab_milestone = GitLabMilestone.objects.get_or_create(
-                gitlab_milestone_id=milestone['id'],
-                gitlab_milestone_iid=milestone['iid'],
-                gitlab_project=gitlab_project
-            )[0]
-            gitlab_milestone.name = milestone['title']
-            gitlab_milestone.closed = milestone['state'] != 'active'
-            gitlab_milestone.save()
-
-        issues = json.loads(
-            get_gitlab(request).get(
-                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/issues"
-            ).content.decode("utf-8")
-        )
-        for issue in issues:
-            gitlab_issue = GitLabIssue.objects.get_or_create(
-                gitlab_issue_iid=issue['iid'],
-                gitlab_issue_id=issue['id'],
-                gitlab_project=gitlab_project
-            )[0]
-            gitlab_issue.name = issue['title']
-            if issue['milestone'] is not None:
-                gitlab_issue.gitlab_milestone = GitLabMilestone.objects.get(
-                    gitlab_milestone_id=issue['milestone']['id'],
-                    gitlab_project=gitlab_project
-                )
-            else:
-                gitlab_issue.gitlab_milestone = None
-            if issue['assignee'] is not None:
-                try:
-                    gitlab_issue.assignee = GitlabAuthorisation.objects.get(gitlab_user_id=issue['assignee']['id'])
-                except ObjectDoesNotExist:
-                    pass
-            else:
-                gitlab_issue.assignee = None
-            gitlab_issue.description = issue['description']
-            gitlab_issue.gitlab_issue_iid = issue['iid']
-            gitlab_issue.updated_at = issue['updated_at']
-            gitlab_issue.project = gitlab_project
-            gitlab_issue.save()
-
-
-def fix_milestones_id(request):
-    projects = json.loads(
-        get_gitlab(request).get(settings.GITLAB_URL + "/api/v3/projects").content.decode("utf-8")
-    )
-    for project in projects:
-        gitlab_project = GitlabProject.objects.get_or_create(gitlab_id=project['id'])[0]
-        gitlab_project.name = project['name']
-        gitlab_project.path_with_namespace = project['path_with_namespace']
-        gitlab_project.name_with_namespace = project['name_with_namespace']
-        gitlab_project.creation_time = project['created_at']
-        gitlab_project.save()
-        milestones = json.loads(
-            get_gitlab(request).get(
-                settings.GITLAB_URL + "/api/v3/projects/" + str(gitlab_project.gitlab_id) + "/milestones"
-            ).content.decode("utf-8")
-        )
-        for milestone in milestones:
-            gitlab_milestone = GitLabMilestone.objects.get_or_create(
-                gitlab_milestone_id=milestone['iid'],
-                gitlab_project=gitlab_project
-            )[0]
-            gitlab_milestone.gitlab_milestone_id = milestone['id']
-            gitlab_milestone.gitlab_milestone_iid = milestone['iid']
-            gitlab_milestone.name = milestone['title']
-            gitlab_milestone.closed = milestone['state'] != 'active'
-            gitlab_milestone.save()
+@app.task()
+def load_new_and_update_existing_projects_from_gitlab():
+    GitlabProject.pull_from_gitlab()
+    GitLabMilestone.pull_from_gitlab()
+    GitLabIssue.pull_from_gitlab()
